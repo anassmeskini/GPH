@@ -3,7 +3,7 @@ project(heuristic VERSION 0.0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
-SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}-Wall")
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}-Wall -Wmissing-field-initializers")
 
 file(GLOB SOURCES "src/*.cpp")
 
@@ -19,6 +19,8 @@ add_compile_definitions(CONCERT_CPLEX_FOUND)
 
 add_compile_definitions(IL_STD)
 
-include_directories(${PROJECT_SOURCE_DIR}/src ${Boost_INCLUDE_DIRS} ${CPLEX_CONCERT_INCLUDE_DIR} ${CPLEX_INCLUDE_DIR})
+# SYSTEM disables warning from cplex headers
+include_directories(${PROJECT_SOURCE_DIR}/src ${Boost_INCLUDE_DIRS} SYSTEM ${CPLEX_CONCERT_INCLUDE_DIR} ${CPLEX_INCLUDE_DIR})
 
 target_link_libraries(heuristic PRIVATE ${Boost_LIBRARIES} ${TBB_IMPORTED_TARGETS} ${CPLEX_CONCERT_LIBRARY} ${CPLEX_ILOCPLEX_LIBRARY} dl ${CPLEX_LIBRARY} pthread)
+target_compile_options(heuristic PRIVATE "-Wall")
