@@ -229,7 +229,9 @@ mpsreader::Section mpsreader::parseColumns(std::ifstream& file,
 
          if (iter->second.first == OBJECTIVE) {
             // TODO
-            while (objective.size() + 1 < ncols) objective.push_back(0.0);
+            assert(ncols >= 0);
+            while (objective.size() + 1 < static_cast<size_t>(ncols))
+               objective.push_back(0.0);
 
             objective.push_back(coef);
          } else {
@@ -292,6 +294,9 @@ mpsreader::Section mpsreader::parseRhs(std::ifstream& file, const Rows& rows,
             case EQUAL:
                lhs[rowid] = side;
                rhs[rowid] = side;
+               break;
+            case OBJECTIVE:
+               assert(0);
                break;
          }
       }
@@ -360,7 +365,6 @@ SparseMatrix<double> mpsreader::compress(const std::vector<double>& denseCoefs,
    assert(!(denseCoefs.size() % ncols));
 
    size_t nrows = static_cast<size_t>(denseCoefs.size() / ncols);
-   size_t col = 0;
    size_t nnz = 0;
 
    for (size_t row = 0; row < nrows; ++row) {
@@ -406,7 +410,6 @@ MIP<double> mpsreader::makeMip(
 
    std::vector<double> rowMajorCoefs(ncols * nrows, 0.0);
 
-   size_t curcol = 0;
    for (size_t colid = 0; colid < rstartT.size() - 1; ++colid) {
       for (size_t rowid = rstartT[colid]; rowid < rstartT[colid + 1]; ++rowid) {
          size_t slot = ncols * idxT[rowid] + colid;
@@ -480,6 +483,10 @@ MIP<double> mpsreader::parse(const std::string& filename) {
          case BOUNDS:
             nextsection = parseBounds(file, cols, lbs, ubs);
             break;
+         case FAIL:
+         case END:
+         case NONE:
+            assert(0);
       }
    }
 

@@ -26,7 +26,6 @@ class CPXSolver : public LPSolver<double> {
    // void setBoolParams(const std::initializer_list<BoolParam>&);
 
   private:
-   const MIP<double>& mip;
    IloEnv env;
    IloCplex cplex;
    IloNumVarArray variables;

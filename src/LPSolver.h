@@ -23,7 +23,7 @@ class LPSolver {
 
    virtual LPResult solve() = 0;
 
-  private:
+  protected:
    const MIP<REAL>& mip;
 };
 

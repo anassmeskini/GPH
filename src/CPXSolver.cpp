@@ -4,10 +4,7 @@
 #ifdef CONCERT_CPLEX_FOUND
 
 CPXSolver::CPXSolver(const MIP<double>& linearProgram, bool noOutput)
-    : mip(linearProgram),
-      LPSolver(linearProgram),
-      variables(env),
-      constraints(env) {
+    : LPSolver(linearProgram), variables(env), constraints(env) {
    IloModel model(env);
    IloNumExpr objExpr(env);
 
@@ -27,7 +24,6 @@ CPXSolver::CPXSolver(const MIP<double>& linearProgram, bool noOutput)
 
    for (size_t row = 0; row < linearProgram.getNRows(); ++row) {
       auto rowView = linearProgram.getRow(row);
-      const double* coefs = rowView.coefs;
       const size_t* indices = rowView.indices;
 
       IloNumExpr rowExpr(env);
@@ -54,20 +50,20 @@ LPResult CPXSolver::solve() {
 
       IloNumArray vals(env);
       // get primal vals
-      size_t ncols = mip.getNCols();
+      size_t ncols = this->mip.getNCols();
       cplex.getValues(vals, variables);
       for (size_t i = 0; i < ncols; ++i)
          result.primalSolution.push_back(vals[i]);
 
       // get dual vals
-      size_t nrows = mip.getNRows();
+      size_t nrows = this->mip.getNRows();
       cplex.getDuals(vals, constraints);
-      for (size_t i = 0; i < ncols; ++i) result.dualSolution.push_back(vals[i]);
+      for (size_t i = 0; i < nrows; ++i) result.dualSolution.push_back(vals[i]);
 
       result.obj = cplex.getObjValue();
-   } else if (IloAlgorithm::Unbounded)
+   } else if (status == IloAlgorithm::Unbounded)
       result.status = LPResult::UNBOUNDED;
-   else if (IloAlgorithm::Infeasible)
+   else if (status == IloAlgorithm::Infeasible)
       result.status = LPResult::INFEASIBLE;
    else
       result.status = LPResult::OTHER;
