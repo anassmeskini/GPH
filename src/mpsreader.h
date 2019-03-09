@@ -234,6 +234,7 @@ mpsreader::Section mpsreader::parseColumns(std::ifstream& file,
                objective.push_back(0.0);
 
             objective.push_back(coef);
+            assert(ncols && objective.size() == static_cast<size_t>(ncols));
          } else {
             coefs.push_back(coef);
             idxT.push_back(iter->second.second);
@@ -241,10 +242,15 @@ mpsreader::Section mpsreader::parseColumns(std::ifstream& file,
       }
    }
 
+   while (objective.size() < static_cast<size_t>(ncols) + 1)
+      objective.push_back(0.0);
+
    rstart.push_back(coefs.size());
 
    assert(tokens.size() == 1);
    if (tokens[0] != "RHS") return FAIL;
+
+   assert(objective.size() == cols.size());
 
    error_section = NONE;
    return RHS;
@@ -257,7 +263,6 @@ mpsreader::Section mpsreader::parseRhs(std::ifstream& file, const Rows& rows,
    std::string line;
    std::vector<std::string> tokens;
 
-   size_t ncols = 0;
    std::string prevCol("");
    std::set<std::string> colset;
 
