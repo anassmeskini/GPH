@@ -38,8 +38,11 @@ class mpsreader {
 
    static Section error_section;
 
+   // stores info about the rows when reading the ROWS section
+   // name -> <contraint type, row id>
    using Rows = std::unordered_map<std::string, std::pair<ConsType, size_t>>;
 
+   // name -> column id
    using Cols = std::unordered_map<std::string, size_t>;
 
    static std::vector<std::string> split(const std::string& line);
@@ -157,6 +160,8 @@ mpsreader::Section mpsreader::parseRows(std::ifstream& file, Rows& rows) {
 
       auto pair =
           rows.emplace(std::move(tokens[1]), std::make_pair(type, rowcounter));
+      
+      // duplicate rows
       if (!pair.second) return FAIL;
 
       if (type != OBJECTIVE) ++rowcounter;
@@ -180,6 +185,8 @@ mpsreader::Section mpsreader::parseColumns(
 
    int colId = -1;
    std::string prevCol("");
+
+   // set of columns to detect duplicate columns
    std::set<std::string> colset;
 
    bool integerSection = false;
@@ -213,11 +220,13 @@ mpsreader::Section mpsreader::parseColumns(
 
       // if it's a new column
       if (curCol != prevCol) {
-         if (colset.count(curCol)) return FAIL;
          ++colId;
+
+         if (colset.count(curCol)) return FAIL;
          colset.insert(curCol);
          cols.emplace(tokens[0], colId);
 
+         // the last row of the transposed matrix ends here
          rstart.push_back(coefs.size());
          integer.push_back(integerSection);
 
@@ -256,9 +265,11 @@ mpsreader::Section mpsreader::parseColumns(
       }
    }
 
+   // acount for the last sucessif columns that didn't mention their objective value
    while (objective.size() < static_cast<size_t>(colId) + 1)
       objective.push_back(0.0);
 
+   // end the last row
    rstart.push_back(coefs.size());
 
    assert(tokens.size() == 1);
