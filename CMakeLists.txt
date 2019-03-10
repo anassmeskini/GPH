@@ -3,7 +3,7 @@ project(heuristic VERSION 0.0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
-SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}-Wall -Wmissing-field-initializers")
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}-Wall")
 
 file(GLOB SOURCES "src/*.cpp")
 
@@ -13,7 +13,7 @@ add_executable(heuristic ${SOURCES})
 
 find_package(Boost COMPONENTS iostreams REQUIRED)
 find_package(TBB REQUIRED tbb)
-find_library(Cplex REQUIRED)
+find_package(Cplex REQUIRED)
 
 add_compile_definitions(CONCERT_CPLEX_FOUND)
 
