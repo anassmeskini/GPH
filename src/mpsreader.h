@@ -1,6 +1,7 @@
 #ifndef MPS_READER_HPP
 #define MPS_READER_HPP
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -53,7 +54,8 @@ class mpsreader {
                                Cols& cols, std::vector<double>& coefs,
                                std::vector<size_t>& idxT,
                                std::vector<size_t>& rstart,
-                               std::vector<double>& obj, bitset&);
+                               std::vector<double>& obj, bitset&,
+                               std::vector<std::string>&);
 
    static Section parseRhs(std::ifstream& file, const Rows& rows,
                            std::vector<double>& lhs, std::vector<double>& rhs);
@@ -69,7 +71,7 @@ class mpsreader {
        std::vector<size_t>&& idxT, std::vector<size_t>&& rstartT,
        std::vector<double>&& rhs, std::vector<double>&& lhs,
        std::vector<double>&& lbs, std::vector<double>&& ubs,
-       std::vector<double>&& obj, bitset&& integer);
+       std::vector<double>&& obj, bitset&& integer, std::vector<std::string>&&);
 
    static std::string getErrorStr();
 };
@@ -167,18 +169,16 @@ mpsreader::Section mpsreader::parseRows(std::ifstream& file, Rows& rows) {
    return COLUMNS;
 }
 
-mpsreader::Section mpsreader::parseColumns(std::ifstream& file,
-                                           const Rows& rows, Cols& cols,
-                                           std::vector<double>& coefs,
-                                           std::vector<size_t>& idxT,
-                                           std::vector<size_t>& rstart,
-                                           std::vector<double>& objective,
-                                           bitset& integer) {
+mpsreader::Section mpsreader::parseColumns(
+    std::ifstream& file, const Rows& rows, Cols& cols,
+    std::vector<double>& coefs, std::vector<size_t>& idxT,
+    std::vector<size_t>& rstart, std::vector<double>& objective,
+    bitset& integer, std::vector<std::string>& varNames) {
    error_section = COLUMNS;
    std::string line;
    std::vector<std::string> tokens;
 
-   int ncols = -1;
+   int colId = -1;
    std::string prevCol("");
    std::set<std::string> colset;
 
@@ -192,6 +192,7 @@ mpsreader::Section mpsreader::parseColumns(std::ifstream& file,
       tokens = split(line);
       if (tokens.size() == 1) break;
 
+      // check if it's the start or end of an integer section
       if (tokens.size() == 3) {
          if (tokens[1] == "'MARKER'") {
             if (tokens[2] == "'INTORG'") {
@@ -210,13 +211,19 @@ mpsreader::Section mpsreader::parseColumns(std::ifstream& file,
 
       auto& curCol = tokens[0];
 
+      // if it's a new column
       if (curCol != prevCol) {
          if (colset.count(curCol)) return FAIL;
+         ++colId;
          colset.insert(curCol);
-         ++ncols;
+         cols.emplace(tokens[0], colId);
+
          rstart.push_back(coefs.size());
-         cols.emplace(tokens[0], ncols);
          integer.push_back(integerSection);
+
+         varNames.push_back(tokens[0]);
+         assert(varNames.size() == colId + 1);
+
          prevCol = curCol;
       }
 
@@ -225,24 +232,31 @@ mpsreader::Section mpsreader::parseColumns(std::ifstream& file,
          double coef = std::stod(tokens[i + 1]);
 
          auto iter = rows.find(rowname);
+         // row not declared in the ROWS section
          if (iter == rows.end()) return FAIL;
 
+         // if the entry is for the objective
          if (iter->second.first == OBJECTIVE) {
             // TODO
-            assert(ncols >= 0);
-            while (objective.size() + 1 < static_cast<size_t>(ncols))
+            assert(colId >= 0);
+            // account for the columns that didn't have an objective entry
+            // colId = 2 size = 0
+            // iter 1: size = 1
+            // iter 2: size = 2
+            while (objective.size() < static_cast<size_t>(colId))
                objective.push_back(0.0);
 
             objective.push_back(coef);
-            assert(ncols && objective.size() == static_cast<size_t>(ncols));
+            assert(colId && objective.size() == static_cast<size_t>(colId) + 1);
          } else {
+            auto rowId = iter->second.second;
             coefs.push_back(coef);
-            idxT.push_back(iter->second.second);
+            idxT.push_back(rowId);
          }
       }
    }
 
-   while (objective.size() < static_cast<size_t>(ncols) + 1)
+   while (objective.size() < static_cast<size_t>(colId) + 1)
       objective.push_back(0.0);
 
    rstart.push_back(coefs.size());
@@ -267,10 +281,33 @@ mpsreader::Section mpsreader::parseRhs(std::ifstream& file, const Rows& rows,
    std::set<std::string> colset;
 
    // TODO handle case where the objective is missing
-   lhs = std::vector<double>(rows.size() - 1,
-                             -std::numeric_limits<double>::infinity());
-   rhs = std::vector<double>(rows.size() - 1,
-                             std::numeric_limits<double>::infinity());
+   lhs = std::vector<double>(rows.size() - 1);
+
+   rhs = std::vector<double>(rows.size() - 1);
+
+   // set default bounds
+   for (auto row : rows) {
+      auto constype = row.second.first;
+      auto id = row.second.second;
+      double inf = std::numeric_limits<double>::infinity();
+
+      switch (constype) {
+         case LESS:
+            lhs[id] = -inf;
+            rhs[id] = 0.0;
+            break;
+         case GREATER:
+            lhs[id] = 0.0;
+            rhs[id] = inf;
+            break;
+         case EQUAL:
+            lhs[id] = 0.0;
+            rhs[id] = 0.0;
+            break;
+         case OBJECTIVE:
+            break;
+      }
+   }
 
    while (std::getline(file, line)) {
       if (line.empty() || line[line.find_last_not_of(" ")] == '*') continue;
@@ -333,7 +370,7 @@ mpsreader::Section mpsreader::parseBounds(std::ifstream& file, const Cols& cols,
 
       tokens = split(line);
       if (tokens.size() == 1) break;
-      if (tokens.size() != 4) return FAIL;
+      if (tokens.size() != 4 && tokens.size() != 3) return FAIL;
 
       auto& colname = tokens[2];
       double bound = std::stof(tokens[3]);
@@ -342,18 +379,28 @@ mpsreader::Section mpsreader::parseBounds(std::ifstream& file, const Cols& cols,
       if (iter == cols.end()) return FAIL;
 
       size_t colid = iter->second;
-      if (tokens[0] == "UP") {
-         ubs[colid] = bound;
-         if (bound < 0.0 && !lb_changed[colid])
+
+      if (tokens.size() == 4) {
+         if (tokens[0] == "UP") {
+            ubs[colid] = bound;
+            if (bound < 0.0 && !lb_changed[colid])
+               lbs[colid] = -std::numeric_limits<double>::infinity();
+         } else if (tokens[0] == "LO") {
+            lbs[colid] = bound;
+            lb_changed[colid] = true;
+         } else if (tokens[0] == "FX") {
+            lbs[colid] = bound;
+            ubs[colid] = bound;
+         } else
+            return FAIL;
+
+      } else if (tokens.size() == 3) {
+         if (tokens[0] == "FR") {
             lbs[colid] = -std::numeric_limits<double>::infinity();
-      } else if (tokens[0] == "LO") {
-         lbs[colid] = bound;
-         lb_changed[colid] = true;
-      } else if (tokens[0] == "FX") {
-         lbs[colid] = bound;
-         ubs[colid] = bound;
-      } else
-         return FAIL;
+            ubs[colid] = std::numeric_limits<double>::infinity();
+         } else
+            return FAIL;
+      }
    }
 
    assert(tokens.size() == 1);
@@ -397,7 +444,8 @@ MIP<double> mpsreader::makeMip(
     std::vector<size_t>&& idxT, std::vector<size_t>&& rstartT,
     std::vector<double>&& rhs, std::vector<double>&& lhs,
     std::vector<double>&& lbs, std::vector<double>&& ubs,
-    std::vector<double>&& objective, bitset&& integer) {
+    std::vector<double>&& objective, bitset&& integer,
+    std::vector<std::string>&& varNames) {
    assert(coefsT.size() == idxT.size());
 
    MIP<double> mip;
@@ -438,6 +486,25 @@ MIP<double> mpsreader::makeMip(
 
    mip.integer = integer;
 
+   mip.varNames = varNames;
+
+   using RowInfo = std::pair<std::string, size_t>;
+   std::vector<RowInfo> rowinfo;
+   rowinfo.reserve(rows.size());
+
+   for (auto& element : rows)
+      rowinfo.emplace_back(element.first, element.second.second);
+
+   std::sort(std::begin(rowinfo), std::end(rowinfo),
+             [](const RowInfo& lhs, const RowInfo& rhs) {
+                return lhs.second < rhs.second;
+             });
+
+   mip.consNames.reserve(rowinfo.size());
+
+   for (auto& element : rowinfo)
+      mip.consNames.push_back(std::move(element.first));
+
    return mip;
 }
 
@@ -465,6 +532,9 @@ MIP<double> mpsreader::parse(const std::string& filename) {
    std::vector<double> lbs;
    std::vector<double> ubs;
 
+   std::vector<std::string> varNames;
+   std::vector<std::string> consNames;
+
    std::vector<double> objective;
 
    bitset integer;
@@ -480,7 +550,7 @@ MIP<double> mpsreader::parse(const std::string& filename) {
             break;
          case COLUMNS:
             nextsection = parseColumns(file, rows, cols, coefsT, idxT, rstatrtT,
-                                       objective, integer);
+                                       objective, integer, varNames);
             break;
          case RHS:
             nextsection = parseRhs(file, rows, lhs, rhs);
@@ -502,7 +572,7 @@ MIP<double> mpsreader::parse(const std::string& filename) {
    return makeMip(rows, cols, std::move(coefsT), std::move(idxT),
                   std::move(rstatrtT), std::move(rhs), std::move(lhs),
                   std::move(lbs), std::move(ubs), std::move(objective),
-                  std::move(integer));
+                  std::move(integer), std::move(varNames));
 }
 
 std::string mpsreader::getErrorStr() {
