@@ -14,9 +14,13 @@ CPXSolver::CPXSolver(const MIP<double>& linearProgram, bool noOutput)
    const auto& lhs = linearProgram.getLHS();
    const auto& rhs = linearProgram.getRHS();
 
+   const auto& varNames = linearProgram.getVarNames();
+   const auto& consNames = linearProgram.getConsNames();
+
    // add variables to the model and build the objective expression
    for (size_t var = 0; var < linearProgram.getNCols(); ++var) {
-      variables.add(IloNumVar(env, lb[var], ub[var]));
+      assert(var < varNames.size());
+      variables.add(IloNumVar(env, lb[var], ub[var], varNames[var].c_str()));
       assert(var < obj.size());
       objExpr += variables[var] * obj[var];
    }
@@ -31,6 +35,8 @@ CPXSolver::CPXSolver(const MIP<double>& linearProgram, bool noOutput)
       for (size_t id = 0; id < rowView.size; ++id)
          rowExpr += rowView.coefs[id] * variables[indices[id]];
 
+      IloConstraint cons(lhs[row] <= rowExpr <= rhs[row]);
+      cons.setName(consNames[row].c_str());
       constraints.add(lhs[row] <= rowExpr <= rhs[row]);
    }
 
