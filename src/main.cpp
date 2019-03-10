@@ -1,4 +1,4 @@
-#include <stdlib.h>
+#include <memory>
 #include "AvaiLPSolver.h"
 #include "CPXSolver.h"
 #include "Common.h"
@@ -15,33 +15,30 @@ int main() {
       std::cout << ex.what();
    }
 
-   LPSolver<double>* solver;
-
    try {
-      solver = new AvaiLPSolver(mip);
+      std::unique_ptr<LPSolver<double>> solver(new AvaiLPSolver(mip));
+      LPResult result = solver->solve();
+
+      std::cout << "LP solver return status: " << to_str(result.status)
+                << std::endl;
+
+      if (result.status == LPResult::OPTIMAL) {
+         std::cout << "obj: " << result.obj << std::endl;
+
+         std::cout << "primal solution: ";
+         for (auto val : result.primalSolution) std::cout << val << ", ";
+
+         std::cout << "\ndual values: ";
+         for (auto val : result.dualSolution) std::cout << val << ", ";
+
+         bool feasible =
+             checkFeasibility<double>(mip, result.primalSolution, 1e-9, 1e-6);
+
+         std::cout << "\nfeasiblity check: " << feasible << std::endl;
+      }
+
    } catch (...) {
       std::cout << "Solver raised an exception";
    }
-
-   auto result = solver->solve();
-
-   std::cout << "LP solver return status: " << to_str(result.status)
-             << std::endl;
-
-   if (result.status == LPResult::OPTIMAL) {
-      std::cout << "obj: " << result.obj << std::endl;
-
-      std::cout << "primal solution: ";
-      for (auto val : result.primalSolution) std::cout << val << ", ";
-
-      std::cout << "\ndual values: ";
-      for (auto val : result.dualSolution) std::cout << val << ", ";
-
-      bool feasible =
-          checkFeasibility<double>(mip, result.primalSolution, 1e-9, 1e-6);
-
-      std::cout << "\nfeasiblity check: " << feasible << std::endl;
-   }
-
    return 0;
 }

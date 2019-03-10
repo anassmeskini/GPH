@@ -17,6 +17,7 @@ CPXSolver::CPXSolver(const MIP<double>& linearProgram, bool noOutput)
    // add variables to the model and build the objective expression
    for (size_t var = 0; var < linearProgram.getNCols(); ++var) {
       variables.add(IloNumVar(env, lb[var], ub[var]));
+      assert(var < obj.size());
       objExpr += variables[var] * obj[var];
    }
 
@@ -37,15 +38,17 @@ CPXSolver::CPXSolver(const MIP<double>& linearProgram, bool noOutput)
    cplex = model;
 
    if (noOutput) cplex.setOut(env.getNullStream());
+   cplex.exportModel("exp.mps");
 }
 
 LPResult CPXSolver::solve() {
-   cplex.solve();
+   bool success = cplex.solve();
 
    LPResult result;
-   auto status = cplex.getStatus();
+   auto cpxstatus = cplex.getStatus();
 
-   if (status == IloAlgorithm::Optimal) {
+   if (cpxstatus == IloAlgorithm::Optimal) {
+      assert(success);
       result.status = LPResult::OPTIMAL;
 
       IloNumArray vals(env);
@@ -61,12 +64,13 @@ LPResult CPXSolver::solve() {
       for (size_t i = 0; i < nrows; ++i) result.dualSolution.push_back(vals[i]);
 
       result.obj = cplex.getObjValue();
-   } else if (status == IloAlgorithm::Unbounded)
+   } else if (cpxstatus == IloAlgorithm::Unbounded) {
       result.status = LPResult::UNBOUNDED;
-   else if (status == IloAlgorithm::Infeasible)
+   } else if (cpxstatus == IloAlgorithm::Infeasible) {
       result.status = LPResult::INFEASIBLE;
-   else
+   } else {
       result.status = LPResult::OTHER;
+   }
 
    return result;
 }
@@ -76,8 +80,8 @@ void CPXSolver::setIntParams(const std::initializer_list<IntParam>& params) {
    for (auto param : params) cplex.setParam(param.first, param.second);
 }
 
-void CPXSolver::setBoolParams(const std::initializer_list<BoolParam>& params) {
-   for (auto param : params) cplex.setParam(param.first, param.second);
+void CPXSolver::setBoolParams(const std::initializer_list<BoolParam>& params)
+{ for (auto param : params) cplex.setParam(param.first, param.second);
 }*/
 
 CPXSolver::~CPXSolver() { env.end(); }
