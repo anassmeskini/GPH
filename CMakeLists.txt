@@ -32,6 +32,8 @@ elseif(SOPLEX_FOUND)
    set(LPSOLVER_INCLUDE_DIRS ${SOPLEX_INCLUDE_DIRS})
    set(LPSOLVER_LIBRARIES ${SOPLEX_LIBRARIES})
    add_compile_definitions(SOPLEX_FOUND)
+else()
+   message(FATAL_ERROR "LP solver NOT found")
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR}/src SYSTEM ${Boost_INCLUDE_DIRS} ${LPSOLVER_INCLUDE_DIRS})

@@ -3,11 +3,12 @@
 
 #include "CPXSolver.h"
 #include "DummySolver.h"
+#include "SPXSolver.h"
 
 #ifdef CONCERT_CPLEX_FOUND
 using AvaiLPSolver = CPXSolver;
-#else
-using AvaiLPSolver = DSolver;
+#elif SOPLEX_FOUND
+using AvaiLPSolver = SPXSolver;
 #endif
 
 #endif
