@@ -4,8 +4,8 @@
 #ifdef CONCERT_CPLEX_FOUND
 
 #include <ilcplex/ilocplex.h>
-#include "LPSolver.h"
-#include "MIP.h"
+#include "core/LPSolver.h"
+#include "core/MIP.h"
 
 class CPXSolver : public LPSolver<double> {
   public:

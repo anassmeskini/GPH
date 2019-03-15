@@ -1,4 +1,4 @@
-#include "CPXSolver.h"
+#include "interface/CPXSolver.h"
 #include <iostream>
 
 #ifdef CONCERT_CPLEX_FOUND

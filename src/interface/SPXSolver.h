@@ -2,7 +2,7 @@
 #define SOPLEX_HPP
 
 #ifdef SOPLEX_FOUND
-#include "LPSolver.h"
+#include "core/LPSolver.h"
 #include "soplex.h"
 
 class SPXSolver : public LPSolver<double> {

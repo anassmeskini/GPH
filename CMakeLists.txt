@@ -6,7 +6,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
-file(GLOB SOURCES "src/*.cpp")
+file(GLOB SOURCES "src/main.cpp" "src/core/*.cpp" "src/interface/*.cpp")
 add_executable(lps ${SOURCES})
 
 find_package(Boost COMPONENTS iostreams REQUIRED)

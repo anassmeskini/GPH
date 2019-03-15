@@ -1,10 +1,9 @@
 #include <memory>
-#include "AvaiLPSolver.h"
-#include "CPXSolver.h"
-#include "Common.h"
-#include "LPSolver.h"
-#include "MIP.h"
-#include "mpsreader.h"
+#include "core/AvaiLPSolver.h"
+#include "core/Common.h"
+#include "core/LPSolver.h"
+#include "core/MIP.h"
+#include "core/mpsreader.h"
 
 int main() {
    MIP<double> mip;
@@ -13,6 +12,7 @@ int main() {
       mip = mpsreader::parse("mip.mps");
    } catch (const std::exception& ex) {
       std::cout << ex.what();
+      return 1;
    }
 
    try {
@@ -25,7 +25,7 @@ int main() {
       if (result.status == LPResult::OPTIMAL) {
          std::cout << "obj: " << result.obj << std::endl;
 
-         std::cout << "primal solution: ";
+         /*std::cout << "primal solution: ";
          for (auto val : result.primalSolution) std::cout << val << ", ";
 
          std::cout << "\ndual values: ";
@@ -34,7 +34,7 @@ int main() {
          bool feasible =
              checkFeasibility<double>(mip, result.primalSolution, 1e-9, 1e-6);
 
-         std::cout << "\nfeasiblity check: " << feasible << std::endl;
+         std::cout << "\nfeasiblity check: " << feasible << std::endl;*/
       }
 
    } catch (...) {
