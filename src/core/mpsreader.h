@@ -160,7 +160,7 @@ mpsreader::Section mpsreader::parseRows(std::ifstream& file, Rows& rows) {
 
       auto pair =
           rows.emplace(std::move(tokens[1]), std::make_pair(type, rowcounter));
-      
+
       // duplicate rows
       if (!pair.second) return FAIL;
 
@@ -265,7 +265,8 @@ mpsreader::Section mpsreader::parseColumns(
       }
    }
 
-   // acount for the last sucessif columns that didn't mention their objective value
+   // acount for the last sucessif columns that didn't mention their objective
+   // value
    while (objective.size() < static_cast<size_t>(colId) + 1)
       objective.push_back(0.0);
 
@@ -291,16 +292,40 @@ mpsreader::Section mpsreader::parseRhs(std::ifstream& file, const Rows& rows,
    std::string prevCol("");
    std::set<std::string> colset;
 
-   // TODO handle case where the objective is missing
-   lhs = std::vector<double>(rows.size() - 1);
+   // TODO
+   const double inf = std::numeric_limits<double>::infinity();
 
-   rhs = std::vector<double>(rows.size() - 1);
+   // TODO handle case where the objective is missing
+   assert(rows.size() > 1);
+   size_t nrows = rows.size() - 1;
+   lhs = std::vector<double>(nrows);
+   rhs = std::vector<double>(nrows);
+
+   for (auto row : rows) {
+      size_t id = row.second.second;
+      ConsType type = row.second.first;
+      switch (type) {
+         case LESS:
+            lhs[id] = -inf;
+            rhs[id] = 0.0;
+            break;
+         case GREATER:
+            lhs[id] = 0.0;
+            rhs[id] = inf;
+            break;
+         case EQUAL:
+            lhs[id] = 0.0;
+            rhs[id] = 0.0;
+            break;
+         case OBJECTIVE:
+            break;
+      }
+   }
 
    // set default bounds
    for (auto row : rows) {
       auto constype = row.second.first;
       auto id = row.second.second;
-      double inf = std::numeric_limits<double>::infinity();
 
       switch (constype) {
          case LESS:
