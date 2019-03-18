@@ -14,8 +14,16 @@ SPXSolver::SPXSolver(const MIP<double>& mip) : LPSolver(mip) {
    mysoplex.setIntParam(SoPlex::OBJSENSE, SoPlex::OBJSENSE_MINIMIZE);
    DSVector dummycol(0);
 
-   for (size_t var = 0; var < mip.getNCols(); ++var)
-      mysoplex.addColReal(LPCol(obj[var], dummycol, lb[var], ub[var]));
+   const double myinf = std::numeric_limits<double>::infinity();
+
+   for (size_t var = 0; var < mip.getNCols(); ++var) {
+      double soLB = lb[var];
+      double soUB = ub[var];
+      if (soLB == -myinf) soLB = -infinity;
+      if (soUB == myinf) soUB = infinity;
+
+      mysoplex.addColReal(LPCol(obj[var], dummycol, soUB, soLB));
+   }
 
    for (size_t row = 0; row < mip.getNRows(); ++row) {
       auto rowview = mip.getRow(row);
@@ -24,8 +32,15 @@ SPXSolver::SPXSolver(const MIP<double>& mip) : LPSolver(mip) {
       for (size_t id = 0; id < rowview.size; ++id)
          vector.add(rowview.indices[id], rowview.coefs[id]);
 
-      mysoplex.addRowReal(LPRow(lhs[row], vector, rhs[row]));
+      double soLHS = lhs[row];
+      double soRHS = rhs[row];
+      if (soLHS == -myinf) soLHS = -infinity;
+      if (soRHS == myinf) soRHS = infinity;
+
+      mysoplex.addRowReal(LPRow(soLHS, vector, soRHS));
    }
+
+   mysoplex.writeFileReal("dump.mps", NULL, NULL, NULL);
 }
 
 LPResult SPXSolver::solve() {
@@ -44,11 +59,13 @@ LPResult SPXSolver::solve() {
       mysoplex.getDualReal(dual);
 
       // TODO use memcpy
-      for (size_t i = 0; i < mip.getNRows(); ++i)
+      for (size_t i = 0; i < mip.getNCols(); ++i)
          result.primalSolution.push_back(prim[i]);
 
-      for (size_t i = 0; i < mip.getNCols(); ++i)
-         result.primalSolution.push_back(dual[i]);
+      for (size_t i = 0; i < mip.getNRows(); ++i)
+         result.dualSolution.push_back(dual[i]);
+
+      result.obj = mysoplex.objValueReal();
    } else
       result.status = LPResult::OTHER;
 
