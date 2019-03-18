@@ -5,8 +5,11 @@
 #include "core/MIP.h"
 #include "core/mpsreader.h"
 
-int main() {
+int main(int argc, char** argv) {
    MIP<double> mip;
+   std::string filename("mip.mps");
+
+   if (argc == 2) filename = std::string(argv[1]);
 
    try {
       mip = mpsreader::parse("mip.mps");
@@ -24,17 +27,6 @@ int main() {
 
       if (result.status == LPResult::OPTIMAL) {
          std::cout << "obj: " << result.obj << std::endl;
-
-         /*std::cout << "primal solution: ";
-         for (auto val : result.primalSolution) std::cout << val << ", ";
-
-         std::cout << "\ndual values: ";
-         for (auto val : result.dualSolution) std::cout << val << ", ";
-
-         bool feasible =
-             checkFeasibility<double>(mip, result.primalSolution, 1e-9, 1e-6);
-
-         std::cout << "\nfeasiblity check: " << feasible << std::endl;*/
       }
 
    } catch (...) {
