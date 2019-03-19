@@ -40,7 +40,7 @@ SPXSolver::SPXSolver(const MIP<double>& mip) : LPSolver(mip) {
       mysoplex.addRowReal(LPRow(soLHS, vector, soRHS));
    }
 
-   mysoplex.writeFileReal("dump.mps", NULL, NULL, NULL);
+   mysoplex.setIntParam(SoPlex::VERBOSITY, SoPlex::VERBOSITY_ERROR);
 }
 
 LPResult SPXSolver::solve() {
