@@ -2,6 +2,10 @@
 #define MPS_READER_HPP
 
 #include <algorithm>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/iostreams/filter/bzip2.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -47,24 +51,29 @@ class mpsreader {
 
    static std::vector<std::string> split(const std::string& line);
 
-   static std::vector<std::string> getNextElements(std::ifstream& file);
+   static std::vector<std::string> getNextElements(
+       boost::iostreams::filtering_istream& file);
 
-   static Section parseName(std::ifstream& file, std::string& name);
+   static Section parseName(boost::iostreams::filtering_istream& file,
+                            std::string& name);
 
-   static Section parseRows(std::ifstream& file, Rows& rows);
+   static Section parseRows(boost::iostreams::filtering_istream& file,
+                            Rows& rows);
 
-   static Section parseColumns(std::ifstream& file, const Rows& rows,
-                               Cols& cols, std::vector<double>& coefs,
+   static Section parseColumns(boost::iostreams::filtering_istream& file,
+                               const Rows& rows, Cols& cols,
+                               std::vector<double>& coefs,
                                std::vector<size_t>& idxT,
                                std::vector<size_t>& rstart,
                                std::vector<double>& obj, bitset&,
                                std::vector<std::string>&);
 
-   static Section parseRhs(std::ifstream& file, const Rows& rows,
-                           std::vector<double>& lhs, std::vector<double>& rhs);
+   static Section parseRhs(boost::iostreams::filtering_istream& file,
+                           const Rows& rows, std::vector<double>& lhs,
+                           std::vector<double>& rhs);
 
-   static Section parseBounds(std::ifstream& file, const Cols& cols,
-                              std::vector<double>& lbs,
+   static Section parseBounds(boost::iostreams::filtering_istream& file,
+                              const Cols& cols, std::vector<double>& lbs,
                               std::vector<double>& ubs);
 
    static SparseMatrix<double> compress(const std::vector<double>&, size_t);
@@ -104,7 +113,8 @@ std::vector<std::string> mpsreader::split(const std::string& line) {
    return tokens;
 }
 
-std::vector<std::string> mpsreader::getNextElements(std::ifstream& file) {
+std::vector<std::string> mpsreader::getNextElements(
+    boost::iostreams::filtering_istream& file) {
    std::string line;
    while (std::getline(file, line) && (line.empty() || line[0] == '*')) {
    }
@@ -112,8 +122,8 @@ std::vector<std::string> mpsreader::getNextElements(std::ifstream& file) {
    return split(line);
 }
 
-mpsreader::Section mpsreader::parseName(std::ifstream& file,
-                                        std::string& name) {
+mpsreader::Section mpsreader::parseName(
+    boost::iostreams::filtering_istream& file, std::string& name) {
    auto tokens = getNextElements(file);
    error_section = NAME;
 
@@ -129,7 +139,8 @@ mpsreader::Section mpsreader::parseName(std::ifstream& file,
    return ROWS;
 }
 
-mpsreader::Section mpsreader::parseRows(std::ifstream& file, Rows& rows) {
+mpsreader::Section mpsreader::parseRows(
+    boost::iostreams::filtering_istream& file, Rows& rows) {
    error_section = ROWS;
    std::string line;
    std::vector<std::string> tokens;
@@ -175,7 +186,7 @@ mpsreader::Section mpsreader::parseRows(std::ifstream& file, Rows& rows) {
 }
 
 mpsreader::Section mpsreader::parseColumns(
-    std::ifstream& file, const Rows& rows, Cols& cols,
+    boost::iostreams::filtering_istream& file, const Rows& rows, Cols& cols,
     std::vector<double>& coefs, std::vector<size_t>& idxT,
     std::vector<size_t>& rstart, std::vector<double>& objective,
     bitset& integer, std::vector<std::string>& varNames) {
@@ -282,9 +293,9 @@ mpsreader::Section mpsreader::parseColumns(
    return RHS;
 }
 
-mpsreader::Section mpsreader::parseRhs(std::ifstream& file, const Rows& rows,
-                                       std::vector<double>& lhs,
-                                       std::vector<double>& rhs) {
+mpsreader::Section mpsreader::parseRhs(
+    boost::iostreams::filtering_istream& file, const Rows& rows,
+    std::vector<double>& lhs, std::vector<double>& rhs) {
    error_section = RHS;
    std::string line;
    std::vector<std::string> tokens;
@@ -388,9 +399,9 @@ mpsreader::Section mpsreader::parseRhs(std::ifstream& file, const Rows& rows,
 }
 
 // TODO handle bounds properly
-mpsreader::Section mpsreader::parseBounds(std::ifstream& file, const Cols& cols,
-                                          std::vector<double>& lbs,
-                                          std::vector<double>& ubs) {
+mpsreader::Section mpsreader::parseBounds(
+    boost::iostreams::filtering_istream& file, const Cols& cols,
+    std::vector<double>& lbs, std::vector<double>& ubs) {
    error_section = BOUNDS;
    std::string line;
    std::vector<std::string> tokens;
@@ -548,9 +559,17 @@ MIP<double> mpsreader::makeMip(
 // construct the sparse constraint matrix from the transposed
 MIP<double> mpsreader::parse(const std::string& filename) {
    std::ifstream file(filename);
+   boost::iostreams::filtering_istream in;
 
    if (!file.is_open())
       throw std::runtime_error("unable to open file: " + filename);
+
+   if (boost::algorithm::ends_with(filename, ".gz"))
+      in.push(boost::iostreams::gzip_decompressor());
+   else if (boost::algorithm::ends_with(filename, ".bz2"))
+      in.push(boost::iostreams::bzip2_decompressor());
+
+   in.push(file);
 
    std::string name;
 
@@ -579,20 +598,20 @@ MIP<double> mpsreader::parse(const std::string& filename) {
    while (nextsection != FAIL && nextsection != END) {
       switch (nextsection) {
          case NAME:
-            nextsection = parseName(file, name);
+            nextsection = parseName(in, name);
             break;
          case ROWS:
-            nextsection = parseRows(file, rows);
+            nextsection = parseRows(in, rows);
             break;
          case COLUMNS:
-            nextsection = parseColumns(file, rows, cols, coefsT, idxT, rstatrtT,
+            nextsection = parseColumns(in, rows, cols, coefsT, idxT, rstatrtT,
                                        objective, integer, varNames);
             break;
          case RHS:
-            nextsection = parseRhs(file, rows, lhs, rhs);
+            nextsection = parseRhs(in, rows, lhs, rhs);
             break;
          case BOUNDS:
-            nextsection = parseBounds(file, cols, lbs, ubs);
+            nextsection = parseBounds(in, cols, lbs, ubs);
             break;
          case FAIL:
          case END:
