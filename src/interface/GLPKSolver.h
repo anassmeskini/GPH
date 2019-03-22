@@ -9,9 +9,9 @@
 
 class GLPKSolver : public LPSolver<double> {
   public:
-   GLPKSolver(const MIP<double>&, bool noOutput = true);
+   GLPKSolver(const MIP<double>&);
 
-   ~GLPKSolver() override;
+   virtual ~GLPKSolver() override;
 
    virtual LPResult solve() override;
 
