@@ -1,18 +1,22 @@
 cmake_minimum_required (VERSION 3.0.0)
-
 project(LPS VERSION 0.0.1 LANGUAGES CXX)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-
 file(GLOB SOURCES "src/main.cpp" "src/core/*.cpp" "src/interface/*.cpp")
 add_executable(lps ${SOURCES})
+target_compile_options(lps PRIVATE "-Wall" "-Wextra" "-Wpedantic")
 
 find_package(Boost COMPONENTS iostreams REQUIRED)
 find_package(TBB REQUIRED tbb)
 
+#use the header only version of fmtlib
+add_compile_definitions(FMT_HEADER_ONLY)
+
 #solvers
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
 if(SOLVER STREQUAL "cpx")
    find_package(Cplex REQUIRED)
 elseif(SOLVER STREQUAL "spx")
@@ -42,6 +46,5 @@ else()
    message(FATAL_ERROR "LP solver NOT found")
 endif()
 
-include_directories(${PROJECT_SOURCE_DIR}/src SYSTEM ${Boost_INCLUDE_DIRS} ${LPSOLVER_INCLUDE_DIRS})
+include_directories(${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external SYSTEM ${Boost_INCLUDE_DIRS} ${LPSOLVER_INCLUDE_DIRS})
 target_link_libraries(lps PRIVATE ${Boost_LIBRARIES} ${TBB_IMPORTED_TARGETS} ${LPSOLVER_LIBRARIES})
-target_compile_options(lps PRIVATE "-Wall")
