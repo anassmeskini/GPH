@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
    if (argc == 2) filename = std::string(argv[1]);
 
    try {
-      mip = mpsreader::parse("mip.mps");
+      mip = mpsreader::parse(filename);
    } catch (const std::exception& ex) {
       std::cout << ex.what();
       return 1;

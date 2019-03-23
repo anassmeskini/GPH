@@ -267,7 +267,7 @@ mpsreader::Section mpsreader::parseColumns(
                objective.push_back(0.0);
 
             objective.push_back(coef);
-            assert(colId && objective.size() == static_cast<size_t>(colId) + 1);
+            assert(objective.size() == static_cast<size_t>(colId) + 1);
          } else {
             auto rowId = iter->second.second;
             coefs.push_back(coef);
@@ -415,6 +415,7 @@ mpsreader::Section mpsreader::parseBounds(
    while (std::getline(file, line)) {
       if (line.empty() || line[line.find_last_not_of(" ")] == '*') continue;
 
+      // TODO handle BV bound
       tokens = split(line);
       if (tokens.size() == 1) break;
       if (tokens.size() != 4 && tokens.size() != 3) return FAIL;
