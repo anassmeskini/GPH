@@ -31,8 +31,8 @@ struct SparseMatrix {
 template <typename REAL>
 SparseMatrix<REAL>::SparseMatrix(size_t nnz, size_t nCols)
     : ncols(nCols), nrows(0) {
-   coefficients.reserve(nnz);
-   indices.reserve(nnz);
+   coefficients.resize(nnz);
+   indices.resize(nnz);
    rowStart.push_back(0);
 }
 

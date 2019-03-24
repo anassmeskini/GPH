@@ -3,7 +3,7 @@
 #include "core/Common.h"
 #include "core/LPSolver.h"
 #include "core/MIP.h"
-#include "core/mpsreader.h"
+#include "core/MPSReader.h"
 #include "fmt/format.h"
 
 int main(int argc, char** argv) {
@@ -23,14 +23,14 @@ int main(int argc, char** argv) {
       std::unique_ptr<LPSolver<double>> solver(new AvaiLPSolver(mip));
       LPResult result = solver->solve();
 
-      fmt::format("LP solver return status:{} ", to_str(result.status));
+      fmt::print("LP solver return status:{}\n", to_str(result.status));
 
       if (result.status == LPResult::OPTIMAL) {
-         std::cout << "obj: " << result.obj << std::endl;
+         fmt::print("obj: {}\n", result.obj);
       }
 
    } catch (...) {
-      fmt::format("Solver raised an exception");
+      fmt::print("Solver raised an exception\n");
    }
    return 0;
 }
