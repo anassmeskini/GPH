@@ -15,6 +15,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include "ska/Hash.hpp"
 
 // TODO handle RANGES section
 class mpsreader {
@@ -44,10 +45,10 @@ class mpsreader {
 
    // stores info about the rows when reading the ROWS section
    // name -> <contraint type, row id>
-   using Rows = std::unordered_map<std::string, std::pair<ConsType, size_t>>;
+   using Rows = HashMap<std::string, std::pair<ConsType, size_t>>;
 
    // name -> column id
-   using Cols = std::unordered_map<std::string, size_t>;
+   using Cols = HashMap<std::string, size_t>;
 
    static std::vector<std::string> split(const std::string& line);
 
