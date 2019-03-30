@@ -4,9 +4,16 @@ project(LPS VERSION 0.0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
 file(GLOB SOURCES "src/main.cpp" "src/core/*.cpp" "src/interface/*.cpp")
 add_executable(lps ${SOURCES})
-target_compile_options(lps PRIVATE "-Wall" "-Wextra" "-Wpedantic")
 
 find_package(Boost COMPONENTS iostreams REQUIRED)
 find_package(TBB REQUIRED tbb)

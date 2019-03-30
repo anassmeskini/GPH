@@ -24,9 +24,8 @@ int main(int argc, char** argv) {
       return 1;
    }
 
+   std::unique_ptr<LPSolver<double>> solver(new AvaiLPSolver(mip));
    try {
-      std::unique_ptr<LPSolver<double>> solver(new AvaiLPSolver(mip));
-
       auto t0 = Timer::now();
       LPResult result = solver->solve();
       auto t1 = Timer::now();

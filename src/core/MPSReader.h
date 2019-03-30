@@ -4,6 +4,7 @@
 #include "MIP.h"
 
 #include <algorithm>
+#include <array>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/iostreams/filter/bzip2.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -16,6 +17,14 @@
 #include <string>
 #include <unordered_map>
 #include "ska/Hash.hpp"
+
+struct Split {
+   std::array<std::pair<int, int>, 5> words;
+   size_t size_ = 0;
+
+   int size(size_t i) { return words[i].second - words[i].first; }
+   size_t size() { return size_; }
+};
 
 // TODO handle RANGES section
 class mpsreader {
@@ -49,8 +58,6 @@ class mpsreader {
 
    // name -> column id
    using Cols = HashMap<std::string, size_t>;
-
-   static std::vector<std::string> split(const std::string& line);
 
    static Section parseName(boost::iostreams::filtering_istream& file,
                             std::string& name);

@@ -1,29 +1,49 @@
 #include "MPSReader.h"
+#include <cstring>
+#include "Timer.h"
+#include "fmt/format.h"
 
-std::vector<std::string> mpsreader::split(const std::string& line) {
+std::string string(const std::string& line, std::pair<int, int> word) {
+   return std::string(line.cbegin() + word.first, line.cbegin() + word.second);
+}
+
+// TODO improve decompression time
+
+static Split split(const std::string& line) {
    constexpr char space = ' ';
    constexpr char tab = '\t';
 
-   size_t beginId;
-   std::vector<std::string> tokens;
+   Split split;
 
    for (size_t id = 0; id < line.size(); ++id) {
       if (line[id] == space || line[id] == tab) continue;
 
-      beginId = id;
+      split.words[split.size_].first = id;
+
       while (true) {
+         if (split.size_ >= 5) throw std::runtime_error("too many words");
+
          ++id;
          assert(id <= line.size());
 
          if (id >= line.size() || line[id] == space || line[id] == tab) {
-            tokens.emplace_back(line.begin() + beginId, line.begin() + id);
+            split.words[split.size_].second = id;
+            ++split.size_;
             break;
          }
       }
    }
 
-   return tokens;
+   return split;
 }
+
+bool strcompare(const char* line, std::pair<size_t, size_t> word,
+                const char* str, size_t size) {
+   if (word.second != word.first + size) return false;
+
+   return !std::memcmp(line + word.first, str, size * sizeof(char));
+}
+
 mpsreader::Section mpsreader::parseName(
     boost::iostreams::filtering_istream& file, std::string& name) {
    error_section = NAME;
@@ -35,16 +55,20 @@ mpsreader::Section mpsreader::parseName(
 
    auto tokens = split(line);
 
-   if (tokens.size() != 2 || tokens[0] != "NAME") return FAIL;
+   if (tokens.size() != 2 ||
+       !strcompare(line.c_str(), tokens.words[0], "NAME", 4))
+      return FAIL;
 
-   name = std::move(tokens[1]);
+   name = string(line, tokens.words[1]);
 
    while (std::getline(file, line) &&
           (line.empty() || line[line.find_first_not_of(" ")] == '*')) {
    }
 
    tokens = split(line);
-   if (tokens.size() > 1 || tokens[0] != "ROWS") return FAIL;
+   if (tokens.size() > 1 ||
+       !strcompare(line.c_str(), tokens.words[0], "ROWS", 4))
+      return FAIL;
 
    error_section = NONE;
    return ROWS;
@@ -55,7 +79,7 @@ mpsreader::Section mpsreader::parseRows(
     std::string& objName) {
    error_section = ROWS;
    std::string line;
-   std::vector<std::string> tokens;
+   Split tokens;
 
    objName.clear();
    size_t rowcounter = 0;
@@ -64,13 +88,14 @@ mpsreader::Section mpsreader::parseRows(
 
       tokens = split(line);
       if (tokens.size() == 1) break;
-      if (tokens.size() != 2 || tokens[0].size() != 1) return FAIL;
+      if (tokens.size() != 2 || tokens.size(0) != 1) return FAIL;
 
       ConsType type;
-      switch (tokens[0][0]) {
+      char typechar = line[tokens.words[0].first];
+      switch (typechar) {
          case 'N':
             type = OBJECTIVE;
-            objName = std::move(tokens[1]);
+            objName = string(line, tokens.words[1]);
             break;
          case 'L':
             type = LESS;
@@ -86,7 +111,7 @@ mpsreader::Section mpsreader::parseRows(
       }
 
       if (type != OBJECTIVE) {
-         auto pair = rows.emplace(std::move(tokens[1]),
+         auto pair = rows.emplace(string(line, tokens.words[1]),
                                   std::make_pair(type, rowcounter));
          ++rowcounter;
 
@@ -96,7 +121,7 @@ mpsreader::Section mpsreader::parseRows(
    }
 
    assert(tokens.size() == 1);
-   if (tokens[0] != "COLUMNS") return FAIL;
+   if (!strcompare(line.c_str(), tokens.words[0], "COLUMNS", 7)) return FAIL;
 
    error_section = NONE;
    return COLUMNS;
@@ -110,13 +135,10 @@ mpsreader::Section mpsreader::parseColumns(
     std::vector<std::string>& varNames) {
    error_section = COLUMNS;
    std::string line;
-   std::vector<std::string> tokens;
+   Split tokens;
 
    int colId = -1;
    std::string prevCol("");
-
-   // set of columns to detect duplicate columns
-   std::set<std::string> colset;
 
    bool integerSection = false;
 
@@ -132,12 +154,13 @@ mpsreader::Section mpsreader::parseColumns(
 
       // check if it's the start or end of an integer section
       if (tokens.size() == 3) {
-         if (tokens[1] == "'MARKER'") {
-            if (tokens[2] == "'INTORG'") {
+         if (strcompare(line.c_str(), tokens.words[1], "'MARKER'", 8)) {
+            if (strcompare(line.c_str(), tokens.words[2], "'INTORG'", 8)) {
                if (integerSection) return FAIL;
                integerSection = true;
                continue;
-            } else if (tokens[2] == "'INTEND'") {
+            } else if (strcompare(line.c_str(), tokens.words[2], "'INTEND'",
+                                  8)) {
                if (!integerSection) return FAIL;
                integerSection = false;
                continue;
@@ -147,36 +170,40 @@ mpsreader::Section mpsreader::parseColumns(
       } else if (!(tokens.size() % 2))
          return FAIL;
 
-      auto& curCol = tokens[0];
+      auto curCol = string(line, tokens.words[0]);
 
       // if it's a new column
       if (curCol != prevCol) {
          ++colId;
 
-         if (colset.count(curCol)) return FAIL;
-         colset.insert(curCol);
-         cols.emplace(tokens[0], colId);
+         auto insertion = cols.insert(std::make_pair(curCol, colId));
+         if (!insertion.second) return FAIL;
 
          // the last row of the transposed matrix ends here
          rstart.push_back(coefs.size());
          integer.push_back(integerSection);
 
-         varNames.push_back(tokens[0]);
+         varNames.push_back(curCol);
          assert(varNames.size() == colId + 1);
 
-         prevCol = curCol;
+         prevCol = std::move(curCol);
       }
 
       for (size_t i = 1; i < tokens.size(); i += 2) {
-         auto& rowname = tokens[i];
-         double coef = std::stod(tokens[i + 1]);
+         auto rowname = string(line, tokens.words[i]);
+         double coef = std::stod(string(line, tokens.words[i + 1]));
 
          // if the entry is for the objective
          if (rowname == objName) {
-            while (objective.size() < static_cast<size_t>(colId))
-               objective.push_back(0.0);
+            if (objective.size() < static_cast<size_t>(colId)) {
+               int objsize = objective.size();
+               objective.resize(colId + 1);
+               std::memset(objective.data() + objsize, 0.0,
+                           (colId - objsize) * sizeof(double));
+            }
 
-            objective.push_back(coef);
+            objective.resize(colId + 1);
+            objective[colId] = coef;
             assert(objective.size() == static_cast<size_t>(colId) + 1);
          } else {
             auto iter = rows.find(rowname);
@@ -191,8 +218,6 @@ mpsreader::Section mpsreader::parseColumns(
       }
    }
 
-   // acount for the last sucessif columns that didn't mention their
-   // objective value
    while (objective.size() < static_cast<size_t>(colId) + 1)
       objective.push_back(0.0);
 
@@ -200,7 +225,7 @@ mpsreader::Section mpsreader::parseColumns(
    rstart.push_back(coefs.size());
 
    assert(tokens.size() == 1);
-   if (tokens[0] != "RHS") return FAIL;
+   if (!strcompare(line.c_str(), tokens.words[0], "RHS", 3)) return FAIL;
 
    assert(objective.size() == cols.size());
 
@@ -213,7 +238,7 @@ mpsreader::Section mpsreader::parseRhs(
     std::vector<double>& lhs, std::vector<double>& rhs) {
    error_section = RHS;
    std::string line;
-   std::vector<std::string> tokens;
+   Split tokens;
 
    std::string prevCol("");
    std::set<std::string> colset;
@@ -277,8 +302,8 @@ mpsreader::Section mpsreader::parseRhs(
       if (!(tokens.size() % 2)) return FAIL;
 
       for (size_t i = 1; i < tokens.size(); i += 2) {
-         auto& rowname = tokens[i];
-         double side = std::stof(tokens[i + 1]);
+         auto rowname = string(line, tokens.words[i]);
+         double side = std::stof(string(line, tokens.words[i + 1]));
 
          auto iter = rows.find(rowname);
          if (iter == rows.end()) return FAIL;
@@ -305,7 +330,7 @@ mpsreader::Section mpsreader::parseRhs(
    }
 
    assert(tokens.size() == 1);
-   if (tokens[0] != "BOUNDS") return FAIL;
+   if (!strcompare(line.c_str(), tokens.words[0], "BOUNDS", 6)) return FAIL;
 
    error_section = NONE;
    return BOUNDS;
@@ -316,7 +341,7 @@ mpsreader::Section mpsreader::parseBounds(
     std::vector<double>& lbs, std::vector<double>& ubs, bitset& integer) {
    error_section = BOUNDS;
    std::string line;
-   std::vector<std::string> tokens;
+   Split tokens;
 
    lbs = std::vector<double>(cols.size(), 0);
    ubs = std::vector<double>(cols.size(),
@@ -334,34 +359,34 @@ mpsreader::Section mpsreader::parseBounds(
       if (tokens.size() == 1) break;
       if (tokens.size() < 3) return FAIL;
 
-      auto& colname = tokens[2];
+      auto colname = string(line, tokens.words[2]);
       auto iter = cols.find(colname);
       if (iter == cols.end()) return FAIL;
       size_t colid = iter->second;
 
       if (tokens.size() == 4) {
-         double bound = std::stof(tokens[3]);
+         double bound = std::stof(string(line, tokens.words[3]));
 
-         if (tokens[0] == "UP") {
+         if (strcompare(line.c_str(), tokens.words[0], "UP", 2)) {
             ubs[colid] = bound;
             if (bound < 0.0 && !lb_changed[colid]) lbs[colid] = -inf;
-         } else if (tokens[0] == "LO") {
+         } else if (strcompare(line.c_str(), tokens.words[0], "LO", 2)) {
             lbs[colid] = bound;
             lb_changed[colid] = true;
-         } else if (tokens[0] == "FX") {
+         } else if (strcompare(line.c_str(), tokens.words[0], "FX", 2)) {
             lbs[colid] = bound;
             ubs[colid] = bound;
-         } else if (tokens[0] == "MI") {
+         } else if (strcompare(line.c_str(), tokens.words[0], "MI", 2)) {
             lbs[colid] = -inf;
-         } else if (tokens[0] == "PL") {
+         } else if (strcompare(line.c_str(), tokens.words[0], "PI", 2)) {
             ubs[colid] = inf;
          } else
             return FAIL;
       } else if (tokens.size() == 3) {
-         if (tokens[0] == "FR") {
+         if (strcompare(line.c_str(), tokens.words[0], "FR", 2)) {
             lbs[colid] = -inf;
             ubs[colid] = inf;
-         } else if (tokens[0] == "BV") {
+         } else if (strcompare(line.c_str(), tokens.words[0], "BV", 2)) {
             integer[colid] = true;
             lbs[colid] = 0.0;
             ubs[colid] = 1.0;
@@ -372,39 +397,10 @@ mpsreader::Section mpsreader::parseBounds(
    }
 
    assert(tokens.size() == 1);
-   if (tokens[0] != "ENDATA") return FAIL;
+   if (!strcompare(line.c_str(), tokens.words[0], "ENDATA", 6)) return FAIL;
 
    error_section = NONE;
    return END;
-}
-
-SparseMatrix<double> mpsreader::compress(const std::vector<double>& denseCoefs,
-                                         size_t ncols) {
-   SparseMatrix<double> matrix;
-
-   assert(!(denseCoefs.size() % ncols));
-
-   size_t nrows = static_cast<size_t>(denseCoefs.size() / ncols);
-   size_t nnz = 0;
-
-   for (size_t row = 0; row < nrows; ++row) {
-      matrix.rowStart.push_back(nnz);
-      for (size_t col = 0; col < ncols; ++col) {
-         double coef = denseCoefs[ncols * row + col];
-         if (coef != 0.0) {
-            matrix.coefficients.push_back(coef);
-            matrix.indices.push_back(col);
-            ++nnz;
-         }
-      }
-   }
-
-   matrix.rowStart.push_back(nnz);
-
-   matrix.ncols = ncols;
-   matrix.nrows = nrows;
-
-   return matrix;
 }
 
 MIP<double> mpsreader::makeMip(
@@ -506,30 +502,43 @@ MIP<double> mpsreader::parse(const std::string& filename) {
    std::vector<size_t> rowSize;
 
    Section nextsection = NAME;
-   while (nextsection != FAIL && nextsection != END) {
-      switch (nextsection) {
-         case NAME:
-            nextsection = parseName(in, name);
-            break;
-         case ROWS:
-            nextsection = parseRows(in, rows, objName);
-            break;
-         case COLUMNS:
-            nextsection =
-                parseColumns(in, rows, cols, coefsT, idxT, rstatrtT, objective,
-                             objName, integer, rowSize, varNames);
-            break;
-         case RHS:
-            nextsection = parseRhs(in, rows, lhs, rhs);
-            break;
-         case BOUNDS:
-            nextsection = parseBounds(in, cols, lbs, ubs, integer);
-            break;
-         case FAIL:
-         case END:
-         case NONE:
-            assert(0);
+
+   Timer::time_point t0;
+   Timer::time_point t1;
+
+   try {
+      while (nextsection != FAIL && nextsection != END) {
+         switch (nextsection) {
+            case NAME:
+               nextsection = parseName(in, name);
+               break;
+            case ROWS:
+               nextsection = parseRows(in, rows, objName);
+               break;
+            case COLUMNS:
+               t0 = Timer::now();
+               nextsection =
+                   parseColumns(in, rows, cols, coefsT, idxT, rstatrtT,
+                                objective, objName, integer, rowSize, varNames);
+               t1 = Timer::now();
+               fmt::print("Section COLUMNS parsed in {}\n",
+                          Timer::seconds(t1, t0));
+               break;
+            case RHS:
+               nextsection = parseRhs(in, rows, lhs, rhs);
+               break;
+            case BOUNDS:
+               nextsection = parseBounds(in, cols, lbs, ubs, integer);
+               break;
+            case FAIL:
+            case END:
+            case NONE:
+               assert(0);
+         }
       }
+   } catch (const std::exception& exp) {
+      throw std::runtime_error("unable to parse file: " + filename + "\n" +
+                               getErrorStr());
    }
 
    if (nextsection == FAIL)
