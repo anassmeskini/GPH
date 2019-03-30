@@ -1,27 +1,33 @@
 #include "MPSReader.h"
-#include <cstring>
 #include "Timer.h"
 #include "fmt/format.h"
+#include <cstring>
 
-std::string string(const std::string& line, std::pair<int, int> word) {
+std::string
+string(const std::string& line, std::pair<int, int> word)
+{
    return std::string(line.cbegin() + word.first, line.cbegin() + word.second);
 }
 
 // TODO improve decompression time
 
-static Split split(const std::string& line) {
+static Split
+split(const std::string& line)
+{
    constexpr char space = ' ';
    constexpr char tab = '\t';
 
    Split split;
 
    for (size_t id = 0; id < line.size(); ++id) {
-      if (line[id] == space || line[id] == tab) continue;
+      if (line[id] == space || line[id] == tab)
+         continue;
 
       split.words[split.size_].first = id;
 
       while (true) {
-         if (split.size_ >= 5) throw std::runtime_error("too many words");
+         if (split.size_ >= 5)
+            throw std::runtime_error("too many words");
 
          ++id;
          assert(id <= line.size());
@@ -37,15 +43,22 @@ static Split split(const std::string& line) {
    return split;
 }
 
-bool strcompare(const char* line, std::pair<size_t, size_t> word,
-                const char* str, size_t size) {
-   if (word.second != word.first + size) return false;
+bool
+strcompare(const char* line,
+           std::pair<size_t, size_t> word,
+           const char* str,
+           size_t size)
+{
+   if (word.second != word.first + size)
+      return false;
 
    return !std::memcmp(line + word.first, str, size * sizeof(char));
 }
 
-mpsreader::Section mpsreader::parseName(
-    boost::iostreams::filtering_istream& file, std::string& name) {
+mpsreader::Section
+mpsreader::parseName(boost::iostreams::filtering_istream& file,
+                     std::string& name)
+{
    error_section = NAME;
 
    std::string line;
@@ -74,9 +87,11 @@ mpsreader::Section mpsreader::parseName(
    return ROWS;
 }
 
-mpsreader::Section mpsreader::parseRows(
-    boost::iostreams::filtering_istream& file, Rows& rows,
-    std::string& objName) {
+mpsreader::Section
+mpsreader::parseRows(boost::iostreams::filtering_istream& file,
+                     Rows& rows,
+                     std::string& objName)
+{
    error_section = ROWS;
    std::string line;
    Split tokens;
@@ -84,11 +99,14 @@ mpsreader::Section mpsreader::parseRows(
    objName.clear();
    size_t rowcounter = 0;
    while (std::getline(file, line)) {
-      if (line.empty() || line[line.find_first_not_of(" ")] == '*') continue;
+      if (line.empty() || line[line.find_first_not_of(" ")] == '*')
+         continue;
 
       tokens = split(line);
-      if (tokens.size() == 1) break;
-      if (tokens.size() != 2 || tokens.size(0) != 1) return FAIL;
+      if (tokens.size() == 1)
+         break;
+      if (tokens.size() != 2 || tokens.size(0) != 1)
+         return FAIL;
 
       ConsType type;
       char typechar = line[tokens.words[0].first];
@@ -116,23 +134,32 @@ mpsreader::Section mpsreader::parseRows(
          ++rowcounter;
 
          // duplicate rows
-         if (!pair.second) return FAIL;
+         if (!pair.second)
+            return FAIL;
       }
    }
 
    assert(tokens.size() == 1);
-   if (!strcompare(line.c_str(), tokens.words[0], "COLUMNS", 7)) return FAIL;
+   if (!strcompare(line.c_str(), tokens.words[0], "COLUMNS", 7))
+      return FAIL;
 
    error_section = NONE;
    return COLUMNS;
 }
 
-mpsreader::Section mpsreader::parseColumns(
-    boost::iostreams::filtering_istream& file, const Rows& rows, Cols& cols,
-    std::vector<double>& coefs, std::vector<size_t>& idxT,
-    std::vector<size_t>& rstart, std::vector<double>& objective,
-    const std::string& objName, bitset& integer, std::vector<size_t>& rowSize,
-    std::vector<std::string>& varNames) {
+mpsreader::Section
+mpsreader::parseColumns(boost::iostreams::filtering_istream& file,
+                        const Rows& rows,
+                        Cols& cols,
+                        std::vector<double>& coefs,
+                        std::vector<size_t>& idxT,
+                        std::vector<size_t>& rstart,
+                        std::vector<double>& objective,
+                        const std::string& objName,
+                        bitset& integer,
+                        std::vector<size_t>& rowSize,
+                        std::vector<std::string>& varNames)
+{
    error_section = COLUMNS;
    std::string line;
    Split tokens;
@@ -147,21 +174,25 @@ mpsreader::Section mpsreader::parseColumns(
    while (std::getline(file, line)) {
       assert(coefs.size() == idxT.size());
 
-      if (line.empty() || line[line.find_first_not_of(" ")] == '*') continue;
+      if (line.empty() || line[line.find_first_not_of(" ")] == '*')
+         continue;
 
       tokens = split(line);
-      if (tokens.size() == 1) break;
+      if (tokens.size() == 1)
+         break;
 
       // check if it's the start or end of an integer section
       if (tokens.size() == 3) {
          if (strcompare(line.c_str(), tokens.words[1], "'MARKER'", 8)) {
             if (strcompare(line.c_str(), tokens.words[2], "'INTORG'", 8)) {
-               if (integerSection) return FAIL;
+               if (integerSection)
+                  return FAIL;
                integerSection = true;
                continue;
-            } else if (strcompare(line.c_str(), tokens.words[2], "'INTEND'",
-                                  8)) {
-               if (!integerSection) return FAIL;
+            } else if (strcompare(
+                         line.c_str(), tokens.words[2], "'INTEND'", 8)) {
+               if (!integerSection)
+                  return FAIL;
                integerSection = false;
                continue;
             } else
@@ -177,7 +208,8 @@ mpsreader::Section mpsreader::parseColumns(
          ++colId;
 
          auto insertion = cols.insert(std::make_pair(curCol, colId));
-         if (!insertion.second) return FAIL;
+         if (!insertion.second)
+            return FAIL;
 
          // the last row of the transposed matrix ends here
          rstart.push_back(coefs.size());
@@ -198,7 +230,8 @@ mpsreader::Section mpsreader::parseColumns(
             if (objective.size() < static_cast<size_t>(colId)) {
                int objsize = objective.size();
                objective.resize(colId + 1);
-               std::memset(objective.data() + objsize, 0.0,
+               std::memset(objective.data() + objsize,
+                           0.0,
                            (colId - objsize) * sizeof(double));
             }
 
@@ -208,7 +241,8 @@ mpsreader::Section mpsreader::parseColumns(
          } else {
             auto iter = rows.find(rowname);
             // row not declared in the ROWS section
-            if (iter == rows.end()) return FAIL;
+            if (iter == rows.end())
+               return FAIL;
 
             auto rowId = iter->second.second;
             coefs.push_back(coef);
@@ -225,7 +259,8 @@ mpsreader::Section mpsreader::parseColumns(
    rstart.push_back(coefs.size());
 
    assert(tokens.size() == 1);
-   if (!strcompare(line.c_str(), tokens.words[0], "RHS", 3)) return FAIL;
+   if (!strcompare(line.c_str(), tokens.words[0], "RHS", 3))
+      return FAIL;
 
    assert(objective.size() == cols.size());
 
@@ -233,9 +268,12 @@ mpsreader::Section mpsreader::parseColumns(
    return RHS;
 }
 
-mpsreader::Section mpsreader::parseRhs(
-    boost::iostreams::filtering_istream& file, const Rows& rows,
-    std::vector<double>& lhs, std::vector<double>& rhs) {
+mpsreader::Section
+mpsreader::parseRhs(boost::iostreams::filtering_istream& file,
+                    const Rows& rows,
+                    std::vector<double>& lhs,
+                    std::vector<double>& rhs)
+{
    error_section = RHS;
    std::string line;
    Split tokens;
@@ -295,18 +333,22 @@ mpsreader::Section mpsreader::parseRhs(
    }
 
    while (std::getline(file, line)) {
-      if (line.empty() || line[line.find_first_not_of(" ")] == '*') continue;
+      if (line.empty() || line[line.find_first_not_of(" ")] == '*')
+         continue;
 
       tokens = split(line);
-      if (tokens.size() == 1) break;
-      if (!(tokens.size() % 2)) return FAIL;
+      if (tokens.size() == 1)
+         break;
+      if (!(tokens.size() % 2))
+         return FAIL;
 
       for (size_t i = 1; i < tokens.size(); i += 2) {
          auto rowname = string(line, tokens.words[i]);
          double side = std::stof(string(line, tokens.words[i + 1]));
 
          auto iter = rows.find(rowname);
-         if (iter == rows.end()) return FAIL;
+         if (iter == rows.end())
+            return FAIL;
 
          size_t rowid = iter->second.second;
          switch (iter->second.first) {
@@ -330,22 +372,27 @@ mpsreader::Section mpsreader::parseRhs(
    }
 
    assert(tokens.size() == 1);
-   if (!strcompare(line.c_str(), tokens.words[0], "BOUNDS", 6)) return FAIL;
+   if (!strcompare(line.c_str(), tokens.words[0], "BOUNDS", 6))
+      return FAIL;
 
    error_section = NONE;
    return BOUNDS;
 }
 
-mpsreader::Section mpsreader::parseBounds(
-    boost::iostreams::filtering_istream& file, const Cols& cols,
-    std::vector<double>& lbs, std::vector<double>& ubs, bitset& integer) {
+mpsreader::Section
+mpsreader::parseBounds(boost::iostreams::filtering_istream& file,
+                       const Cols& cols,
+                       std::vector<double>& lbs,
+                       std::vector<double>& ubs,
+                       bitset& integer)
+{
    error_section = BOUNDS;
    std::string line;
    Split tokens;
 
    lbs = std::vector<double>(cols.size(), 0);
-   ubs = std::vector<double>(cols.size(),
-                             std::numeric_limits<double>::infinity());
+   ubs =
+     std::vector<double>(cols.size(), std::numeric_limits<double>::infinity());
 
    bitset lb_changed(cols.size(), false);
 
@@ -353,15 +400,19 @@ mpsreader::Section mpsreader::parseBounds(
    constexpr double inf = std::numeric_limits<double>::infinity();
 
    while (std::getline(file, line)) {
-      if (line.empty() || line[line.find_first_not_of(" ")] == '*') continue;
+      if (line.empty() || line[line.find_first_not_of(" ")] == '*')
+         continue;
 
       tokens = split(line);
-      if (tokens.size() == 1) break;
-      if (tokens.size() < 3) return FAIL;
+      if (tokens.size() == 1)
+         break;
+      if (tokens.size() < 3)
+         return FAIL;
 
       auto colname = string(line, tokens.words[2]);
       auto iter = cols.find(colname);
-      if (iter == cols.end()) return FAIL;
+      if (iter == cols.end())
+         return FAIL;
       size_t colid = iter->second;
 
       if (tokens.size() == 4) {
@@ -369,7 +420,8 @@ mpsreader::Section mpsreader::parseBounds(
 
          if (strcompare(line.c_str(), tokens.words[0], "UP", 2)) {
             ubs[colid] = bound;
-            if (bound < 0.0 && !lb_changed[colid]) lbs[colid] = -inf;
+            if (bound < 0.0 && !lb_changed[colid])
+               lbs[colid] = -inf;
          } else if (strcompare(line.c_str(), tokens.words[0], "LO", 2)) {
             lbs[colid] = bound;
             lb_changed[colid] = true;
@@ -397,19 +449,28 @@ mpsreader::Section mpsreader::parseBounds(
    }
 
    assert(tokens.size() == 1);
-   if (!strcompare(line.c_str(), tokens.words[0], "ENDATA", 6)) return FAIL;
+   if (!strcompare(line.c_str(), tokens.words[0], "ENDATA", 6))
+      return FAIL;
 
    error_section = NONE;
    return END;
 }
 
-MIP<double> mpsreader::makeMip(
-    const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
-    std::vector<size_t>&& idxT, std::vector<size_t>&& rstartT,
-    std::vector<double>&& rhs, std::vector<double>&& lhs,
-    std::vector<double>&& lbs, std::vector<double>&& ubs,
-    std::vector<double>&& objective, bitset&& integer,
-    const std::vector<size_t>& rowSize, std::vector<std::string>&& varNames) {
+MIP<double>
+mpsreader::makeMip(const Rows& rows,
+                   const Cols& cols,
+                   std::vector<double>&& coefsT,
+                   std::vector<size_t>&& idxT,
+                   std::vector<size_t>&& rstartT,
+                   std::vector<double>&& rhs,
+                   std::vector<double>&& lhs,
+                   std::vector<double>&& lbs,
+                   std::vector<double>&& ubs,
+                   std::vector<double>&& objective,
+                   bitset&& integer,
+                   const std::vector<size_t>& rowSize,
+                   std::vector<std::string>&& varNames)
+{
    assert(coefsT.size() == idxT.size());
 
    MIP<double> mip;
@@ -446,7 +507,8 @@ MIP<double> mpsreader::makeMip(
    for (auto& element : rows)
       rowinfo.emplace_back(element.first, element.second.second);
 
-   std::sort(std::begin(rowinfo), std::end(rowinfo),
+   std::sort(std::begin(rowinfo),
+             std::end(rowinfo),
              [](const RowInfo& lhs, const RowInfo& rhs) {
                 return lhs.second < rhs.second;
              });
@@ -461,7 +523,9 @@ MIP<double> mpsreader::makeMip(
 
 // read the mps, fill a transposed constraint matrix
 // construct the sparse constraint matrix from the transposed
-MIP<double> mpsreader::parse(const std::string& filename) {
+MIP<double>
+mpsreader::parse(const std::string& filename)
+{
    std::ifstream file(filename);
    boost::iostreams::filtering_istream in;
 
@@ -517,9 +581,17 @@ MIP<double> mpsreader::parse(const std::string& filename) {
                break;
             case COLUMNS:
                t0 = Timer::now();
-               nextsection =
-                   parseColumns(in, rows, cols, coefsT, idxT, rstatrtT,
-                                objective, objName, integer, rowSize, varNames);
+               nextsection = parseColumns(in,
+                                          rows,
+                                          cols,
+                                          coefsT,
+                                          idxT,
+                                          rstatrtT,
+                                          objective,
+                                          objName,
+                                          integer,
+                                          rowSize,
+                                          varNames);
                t1 = Timer::now();
                fmt::print("Section COLUMNS parsed in {}\n",
                           Timer::seconds(t1, t0));
@@ -545,13 +617,24 @@ MIP<double> mpsreader::parse(const std::string& filename) {
       throw std::runtime_error("unable to parse file: " + filename + "\n" +
                                getErrorStr());
 
-   return makeMip(rows, cols, std::move(coefsT), std::move(idxT),
-                  std::move(rstatrtT), std::move(rhs), std::move(lhs),
-                  std::move(lbs), std::move(ubs), std::move(objective),
-                  std::move(integer), rowSize, std::move(varNames));
+   return makeMip(rows,
+                  cols,
+                  std::move(coefsT),
+                  std::move(idxT),
+                  std::move(rstatrtT),
+                  std::move(rhs),
+                  std::move(lhs),
+                  std::move(lbs),
+                  std::move(ubs),
+                  std::move(objective),
+                  std::move(integer),
+                  rowSize,
+                  std::move(varNames));
 }
 
-std::string mpsreader::getErrorStr() {
+std::string
+mpsreader::getErrorStr()
+{
    std::string errorstr = "Failed to parse mps file, error in section: ";
    switch (error_section) {
       case NAME:
@@ -578,8 +661,10 @@ std::string mpsreader::getErrorStr() {
    return errorstr;
 }
 
-SparseMatrix<double> mpsreader::transpose(const SparseMatrix<double>& matrix,
-                                          const std::vector<size_t>& rowSize) {
+SparseMatrix<double>
+mpsreader::transpose(const SparseMatrix<double>& matrix,
+                     const std::vector<size_t>& rowSize)
+{
    size_t nnz = matrix.coefficients.size();
    size_t ncols = matrix.nrows;
    size_t nrows = matrix.ncols;
@@ -603,7 +688,8 @@ SparseMatrix<double> mpsreader::transpose(const SparseMatrix<double>& matrix,
 
    for (size_t col = 0; col < ncols; ++col) {
       for (size_t rowid = matrix.rowStart[col];
-           rowid < matrix.rowStart[col + 1]; ++rowid) {
+           rowid < matrix.rowStart[col + 1];
+           ++rowid) {
          size_t row = matrix.indices[rowid];
          double coef = matrix.coefficients[rowid];
 

@@ -4,12 +4,16 @@
 #include <cassert>
 #include <vector>
 
-template <typename REAL>
+template<typename REAL>
 class MIP;
 
-template <typename REAL>
-bool checkFeasibility(const MIP<REAL>& mip, const std::vector<REAL>& sol,
-                      REAL boundtol, REAL constol) {
+template<typename REAL>
+bool
+checkFeasibility(const MIP<REAL>& mip,
+                 const std::vector<REAL>& sol,
+                 REAL boundtol,
+                 REAL constol)
+{
    const auto& ub = mip.getUB();
    const auto& lb = mip.getLB();
 
@@ -26,7 +30,7 @@ bool checkFeasibility(const MIP<REAL>& mip, const std::vector<REAL>& sol,
 
    for (size_t rowid = 0; rowid < mip.getNRows(); ++rowid) {
       const auto& row = mip.getRow(rowid);
-      REAL activity{0.0};
+      REAL activity{ 0.0 };
 
       for (size_t id = 0; id < row.size; ++id)
          activity += row.coefs[id] * sol[row.indices[id]];
@@ -40,15 +44,18 @@ bool checkFeasibility(const MIP<REAL>& mip, const std::vector<REAL>& sol,
    return true;
 }
 
-template <typename REAL>
-bool checkExactFeasibility(const MIP<REAL>& mip, const std::vector<REAL>& sol) {
+template<typename REAL>
+bool
+checkExactFeasibility(const MIP<REAL>& mip, const std::vector<REAL>& sol)
+{
    const auto& ub = mip.getUB();
    const auto& lb = mip.getLB();
 
    assert(sol.size() == mip.getNCols());
 
    for (size_t colid = 0; colid < mip.getNCols(); ++colid) {
-      if (sol[colid] > ub[colid] || sol[colid] < lb[colid]) return false;
+      if (sol[colid] > ub[colid] || sol[colid] < lb[colid])
+         return false;
    }
 
    const auto& lhs = mip.getLHS();
@@ -56,12 +63,13 @@ bool checkExactFeasibility(const MIP<REAL>& mip, const std::vector<REAL>& sol) {
 
    for (size_t rowid = 0; rowid < mip.getNRows(); ++rowid) {
       auto& row = mip.getRow(rowid);
-      REAL activity{0.0};
+      REAL activity{ 0.0 };
 
       for (size_t id = 0; id < row.size(); ++id)
          activity += row.coefs[id] * sol[row.indices[id]];
 
-      if (activity > rhs[rowid] || activity < lhs[rowid]) return false;
+      if (activity > rhs[rowid] || activity < lhs[rowid])
+         return false;
    }
 
    // TODO integrality check

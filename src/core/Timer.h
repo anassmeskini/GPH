@@ -3,7 +3,8 @@
 
 #include <tbb/tick_count.h>
 
-struct Timer {
+struct Timer
+{
    using time_point = tbb::tick_count;
 
    static time_point now();
