@@ -8,23 +8,23 @@ LPFactory::LPFactory(const MIP<double>& mip)
 std::unique_ptr<LPSolver<double>>
 LPFactory::get() const
 {
-   copyLock.lock();
+  copyLock.lock();
 
-   auto ptr = original->clone();
+  auto ptr = original->clone();
 
-   copyLock.unlock();
+  copyLock.unlock();
 
-   return ptr;
+  return ptr;
 }
 
 std::shared_ptr<LPSolver<double>>
 LPFactory::getOriginal()
 {
-   return { original };
+  return { original };
 }
 
 void
 LPFactory::solve()
 {
-   original->solve();
+  original->solve();
 }

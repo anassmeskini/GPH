@@ -5,11 +5,11 @@
 
 struct Timer
 {
-   using time_point = tbb::tick_count;
+  using time_point = tbb::tick_count;
 
-   static time_point now();
+  static time_point now();
 
-   static double seconds(time_point, time_point);
+  static double seconds(time_point, time_point);
 };
 
 #endif

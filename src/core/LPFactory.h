@@ -7,18 +7,18 @@
 
 class LPFactory
 {
- public:
-   LPFactory(const MIP<double>&);
+public:
+  LPFactory(const MIP<double>&);
 
-   std::unique_ptr<LPSolver<double>> get() const;
+  std::unique_ptr<LPSolver<double>> get() const;
 
-   std::shared_ptr<LPSolver<double>> getOriginal();
+  std::shared_ptr<LPSolver<double>> getOriginal();
 
-   void solve();
+  void solve();
 
- private:
-   std::shared_ptr<LPSolver<double>> original;
-   mutable tbb::mutex copyLock;
+private:
+  std::shared_ptr<LPSolver<double>> original;
+  mutable tbb::mutex copyLock;
 };
 
 #endif
