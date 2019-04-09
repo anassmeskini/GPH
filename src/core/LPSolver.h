@@ -2,9 +2,9 @@
 #define _LPSOLVER_HPP
 
 #include "MIP.h"
+#include <memory>
 #include <vector>
 
-// TODO templetize this class
 struct LPResult
 {
    enum Status
@@ -14,6 +14,7 @@ struct LPResult
       OPTIMAL,
       OTHER
    } status;
+
    std::vector<double> primalSolution;
    std::vector<double> dualSolution;
    double obj;
@@ -25,19 +26,11 @@ template<typename REAL>
 class LPSolver
 {
  public:
-   LPSolver(const MIP<REAL>&);
-
    virtual ~LPSolver(){};
 
    virtual LPResult solve() = 0;
 
- protected:
-   const MIP<REAL>& mip;
+   virtual std::unique_ptr<LPSolver<REAL>> clone() const = 0;
 };
-
-template<typename REAL>
-LPSolver<REAL>::LPSolver(const MIP<REAL>& _mip)
-  : mip(_mip)
-{}
 
 #endif

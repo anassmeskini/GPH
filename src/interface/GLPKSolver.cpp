@@ -1,10 +1,11 @@
-#include "interface/GLPKSolver.h"
+#include "GLPKSolver.h"
 #include <algorithm>
 #include <numeric>
 
 #ifdef GLPK_FOUND
 GLPKSolver::GLPKSolver(const MIP<double>& mip)
-    : LPSolver(mip), problem(nullptr) {
+  : problem(nullptr)
+{
    size_t ncols = mip.getNCols();
    size_t nrows = mip.getNRows();
 
@@ -62,21 +63,24 @@ GLPKSolver::GLPKSolver(const MIP<double>& mip)
       auto rowview = mip.getRow(row);
       // TODO remove this when int is used instead of size_t
       std::vector<int> intbuffer(rowview.size);
-      std::transform(rowview.indices, rowview.indices + rowview.size,
+      std::transform(rowview.indices,
+                     rowview.indices + rowview.size,
                      intbuffer.begin(),
                      [&](size_t id) { return static_cast<int>(id) + 1; });
 
-      glp_set_mat_row(problem, row + 1, rowview.size, intbuffer.data() - 1,
+      glp_set_mat_row(problem,
+                      row + 1,
+                      rowview.size,
+                      intbuffer.data() - 1,
                       rowview.coefs - 1);
    }
 }
 
-LPResult GLPKSolver::solve() {
+LPResult
+GLPKSolver::solve()
+{
    LPResult result;
    int ret = glp_simplex(problem, NULL);
-
-   size_t ncols = mip.getNCols();
-   size_t nrows = mip.getNRows();
 
    if (!ret) {
       int st = glp_get_status(problem);
@@ -109,6 +113,25 @@ LPResult GLPKSolver::solve() {
    return result;
 }
 
-GLPKSolver::~GLPKSolver() {}
+GLPKSolver::GLPKSolver(const GLPKSolver& glpksolver)
+  : problem(nullptr)
+  , ncols(glpksolver.ncols)
+  , nrows(glpksolver.nrows)
+{
+   problem = glp_create_prob();
+   glp_copy_prob(problem, glpksolver.problem, GLP_OFF);
+   assert(problem);
+}
 
-#endif  // GLPK_FOUND
+std::unique_ptr<LPSolver<double>>
+GLPKSolver::clone() const
+{
+   return std::unique_ptr<LPSolver<double>>(new GLPKSolver(*this));
+}
+
+GLPKSolver::~GLPKSolver()
+{
+   glp_delete_prob(problem);
+}
+
+#endif // GLPK_FOUND

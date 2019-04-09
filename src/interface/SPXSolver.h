@@ -5,16 +5,23 @@
 #include "core/LPSolver.h"
 #include "soplex.h"
 
-class SPXSolver : public LPSolver<double> {
-  public:
+class SPXSolver : public LPSolver<double>
+{
+ public:
    SPXSolver(const MIP<double>&);
 
-   virtual ~SPXSolver();
+   SPXSolver(const SPXSolver&);
+
+   virtual ~SPXSolver() override;
 
    virtual LPResult solve() override;
 
-  private:
+   virtual std::unique_ptr<LPSolver<double>> clone() const override;
+
+ private:
    soplex::SoPlex mysoplex;
+   size_t ncols;
+   size_t nrows;
 };
 
 #endif
