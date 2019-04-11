@@ -9,31 +9,33 @@
 
 class CPXSolver : public LPSolver<double>
 {
-public:
-  CPXSolver(const MIP<double>&);
+   public:
+   CPXSolver(const MIP<double>&);
 
-  CPXSolver(const CPXSolver&);
+   CPXSolver(const CPXSolver&);
 
-  ~CPXSolver() override;
+   ~CPXSolver() override;
 
-  virtual LPResult solve() override;
+   virtual LPResult solve() override;
 
-  virtual std::unique_ptr<LPSolver<double>> clone() const override;
+   virtual LPResult solve(LPAlgorithm) override;
 
-  // using IntParam = std::pair<IloCplex::IntParam, int>;
+   virtual std::unique_ptr<LPSolver<double>> clone() const override;
 
-  // using BoolParam = std::pair<IloCplex::BoolParam, bool>;
+   // using IntParam = std::pair<IloCplex::IntParam, int>;
 
-private:
-  IloEnv env;
-  IloModel model;
-  IloNumVarArray variables;
-  IloRangeArray constraints;
-  IloCplex cplex;
+   // using BoolParam = std::pair<IloCplex::BoolParam, bool>;
 
-  size_t ncols;
-  size_t nrows;
-  bool deleteEnv;
+   private:
+   IloEnv env;
+   IloModel model;
+   IloNumVarArray variables;
+   IloRangeArray constraints;
+   IloCplex cplex;
+
+   size_t ncols;
+   size_t nrows;
+   bool deleteEnv;
 };
 
 #endif

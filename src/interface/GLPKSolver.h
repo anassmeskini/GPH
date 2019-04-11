@@ -9,22 +9,24 @@
 
 class GLPKSolver : public LPSolver<double>
 {
-public:
-  GLPKSolver(const MIP<double>&);
+   public:
+   GLPKSolver(const MIP<double>&);
 
-  GLPKSolver(const GLPKSolver&);
+   GLPKSolver(const GLPKSolver&);
 
-  virtual ~GLPKSolver() override;
+   virtual ~GLPKSolver() override;
 
-  virtual LPResult solve() override;
+   virtual LPResult solve() override;
 
-  virtual std::unique_ptr<LPSolver<double>> clone() const override;
+   virtual LPResult solve(LPAlgorithm) override;
 
-private:
-  glp_prob* problem;
+   virtual std::unique_ptr<LPSolver<double>> clone() const override;
 
-  size_t ncols;
-  size_t nrows;
+   private:
+   glp_prob* problem;
+
+   size_t ncols;
+   size_t nrows;
 };
 
 #endif

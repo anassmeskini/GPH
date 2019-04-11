@@ -7,21 +7,21 @@
 
 class SPXSolver : public LPSolver<double>
 {
-public:
-  SPXSolver(const MIP<double>&);
+   public:
+   SPXSolver(const MIP<double>&);
 
-  SPXSolver(const SPXSolver&);
+   SPXSolver(const SPXSolver&);
 
-  virtual ~SPXSolver() override;
+   virtual ~SPXSolver() override;
 
-  virtual LPResult solve() override;
+   virtual LPResult solve() override;
 
-  virtual std::unique_ptr<LPSolver<double>> clone() const override;
+   virtual std::unique_ptr<LPSolver<double>> clone() const override;
 
-private:
-  soplex::SoPlex mysoplex;
-  size_t ncols;
-  size_t nrows;
+   private:
+   soplex::SoPlex mysoplex;
+   size_t ncols;
+   size_t nrows;
 };
 
 #endif
