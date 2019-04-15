@@ -1,48 +1,47 @@
 #include "core/AvaiLPSolver.h"
 #include "core/Common.h"
+#include "core/Heuristic.h"
 #include "core/LPSolver.h"
 #include "core/MIP.h"
-#include "core/MPSReader.h"
+#include "core/Problem.h"
 #include "core/Timer.h"
 #include "fmt/format.h"
+#include "io/ArgParser.h"
+#include "io/MPSReader.h"
+#include "methods/TrivialSolutions.h"
+
 #include <memory>
 
 int
 main(int argc, char** argv)
 {
-  MIP<double> mip;
-  std::string filename("mip.mps");
+   auto optarginfo = parseArgs(argc, argv);
 
-  if (argc == 2)
-    filename = std::string(argv[1]);
+   if (!optarginfo)
+      return 1;
 
-  try {
-    auto t0 = Timer::now();
-    mip = mpsreader::parse(filename);
-    auto t1 = Timer::now();
+   auto arginfo = optarginfo.value();
 
-    fmt::print("Reading the problem took: {}\n", Timer::seconds(t1, t0));
-  } catch (const std::exception& ex) {
-    std::cout << ex.what();
-    return 1;
-  }
+   MIP<double> mip;
+   std::string filename(arginfo.probFile);
 
-  std::unique_ptr<LPSolver<double>> solver(new AvaiLPSolver(mip));
-  try {
-    auto t0 = Timer::now();
-    LPResult result = solver->solve();
-    auto t1 = Timer::now();
+   try
+   {
+      auto t0 = Timer::now();
+      mip = mpsreader::parse(filename);
+      auto t1 = Timer::now();
 
-    fmt::print("Solving the LP took: {}\n", Timer::seconds(t1, t0));
+      fmt::print("Reading the problem took: {}\n", Timer::seconds(t1, t0));
+   }
+   catch (const std::exception& ex)
+   {
+      std::cout << ex.what();
+      return 1;
+   }
 
-    fmt::print("LP solver return status: {}\n", to_str(result.status));
+   Heuristics heur({ new TrivialSolutions });
 
-    if (result.status == LPResult::OPTIMAL) {
-      fmt::print("obj: {}\n", result.obj);
-    }
+   heur.run(std::move(mip));
 
-  } catch (...) {
-    fmt::print("Solver raised an exception\n");
-  }
-  return 0;
+   return 0;
 }

@@ -1,6 +1,8 @@
 #include "LPFactory.h"
 #include "AvaiLPSolver.h"
 
+#include <mutex>
+
 LPFactory::LPFactory(const MIP<double>& mip)
   : original(new AvaiLPSolver(mip))
 {}
@@ -8,11 +10,9 @@ LPFactory::LPFactory(const MIP<double>& mip)
 std::unique_ptr<LPSolver<double>>
 LPFactory::get() const
 {
-  copyLock.lock();
-
+  std::lock_guard<tbb::mutex> lock(copyLock);
+  
   auto ptr = original->clone();
-
-  copyLock.unlock();
 
   return ptr;
 }
