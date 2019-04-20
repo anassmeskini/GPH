@@ -49,8 +49,11 @@ struct Time
 
 struct Activity
 {
-   double max;
-   double min;
+   double min = 0.0;
+   double max = 0.0;
+
+   int ninfmin = 0;
+   int ninfmax = 0;
 };
 
 template<typename REAL>

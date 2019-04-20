@@ -5,26 +5,25 @@
 
 LPFactory::LPFactory(const MIP<double>& mip)
   : original(new AvaiLPSolver(mip))
-{}
+{
+}
 
 std::unique_ptr<LPSolver<double>>
 LPFactory::get() const
 {
-  std::lock_guard<tbb::mutex> lock(copyLock);
-  
-  auto ptr = original->clone();
+   std::lock_guard<tbb::mutex> lock(copyLock);
 
-  return ptr;
+   return original->clone();
 }
 
 std::shared_ptr<LPSolver<double>>
 LPFactory::getOriginal()
 {
-  return { original };
+   return { original };
 }
 
 void
 LPFactory::solve()
 {
-  original->solve();
+   original->solve();
 }

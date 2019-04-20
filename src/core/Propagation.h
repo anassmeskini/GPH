@@ -12,12 +12,29 @@ propagate(const ProblemView& problem,
           std::vector<Activity>& activities,
           size_t col);
 
-void
+bool
 updateActivities(VectorView<double> colview,
                  double oldlb,
                  double newlb,
                  double oldub,
                  double newub,
-                 std::vector<Activity>& activities);
+                 std::vector<Activity>& activities,
+                 const std::vector<double>& lhs,
+                 const std::vector<double>& rhs);
+
+enum class ChangedBound
+{
+   LOWER,
+   UPPER,
+};
+
+template<ChangedBound chgbd>
+bool
+updateActivities(VectorView<double> colview,
+                 double oldb,
+                 double newb,
+                 std::vector<Activity>& activities,
+                 const std::vector<double>& lhs,
+                 const std::vector<double>& rhs);
 
 #endif

@@ -4,116 +4,344 @@
 #include "io/Message.h"
 
 #include <memory>
-
-// TODO remove the need for a call back, update the activities inside
-
-// the callback is called whenever a bound thightening is possible on the row
-// It should be used to update the activities of the rows in the support of
-// the modified columns, the callback returns whether it found a conflict
-// i.e. max{Act_i} < lhs_i or min{Act_i} > rhs_i
-template<typename CALLBLACK>
-static bool
-propagateRow(VectorView<double> rowview,
-             double lhs,
-             double rhs,
-             Activity activity,
-             const std::vector<double>& lb,
-             const std::vector<double>& ub,
-             const bitset& integer,
-             CALLBLACK&& callback)
+template<>
+bool
+updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
+                                      double oldlb,
+                                      double newlb,
+                                      std::vector<Activity>& activities,
+                                      const std::vector<double>& lhs,
+                                      const std::vector<double>& rhs)
 {
-   int nbndchg = 0;
+   const double* colcoefs = colview.coefs;
+   const size_t* colindices = colview.indices;
+   const size_t colsize = colview.size;
 
+   assert(!Num::isInf(newlb));
+   bool lbfinite = !Num::isInf(oldlb);
+
+   for (size_t i = 0; i < colsize; ++i)
+   {
+      size_t row = colindices[i];
+      const double coef = colcoefs[i];
+
+      if (Num::greater(coef, 0.0))
+      {
+         if (lbfinite)
+            activities[row].min += coef * (newlb - oldlb);
+         else
+         {
+            activities[row].min += coef * newlb;
+            --activities[row].ninfmin;
+         }
+      }
+      else
+      {
+         if (lbfinite)
+            activities[row].max += coef * (newlb - oldlb);
+         else
+         {
+            activities[row].max += coef * newlb;
+            --activities[row].ninfmax;
+         }
+      }
+
+      if ((!Num::less(activities[row].min, rhs[row]) &&
+           !activities[row].ninfmin) ||
+          (!Num::greater(activities[row].max, lhs[row]) &&
+           !activities[row].ninfmax))
+      {
+         Message::debug("Act update: row {} activities {} {}, sides {} {}",
+                        row,
+                        activities[row].min,
+                        activities[row].max,
+                        lhs[row],
+                        rhs[row]);
+         return false;
+      }
+   }
+
+   return true;
+}
+
+template<>
+bool
+updateActivities<ChangedBound::UPPER>(VectorView<double> colview,
+                                      double oldub,
+                                      double newub,
+                                      std::vector<Activity>& activities,
+                                      const std::vector<double>& lhs,
+                                      const std::vector<double>& rhs)
+{
+   const double* colcoefs = colview.coefs;
+   const size_t* colindices = colview.indices;
+   const size_t colsize = colview.size;
+
+   assert(!Num::isInf(newub));
+   bool ubfinite = !Num::isInf(oldub);
+
+   for (size_t i = 0; i < colsize; ++i)
+   {
+      size_t row = colindices[i];
+      const double coef = colcoefs[i];
+
+      if (Num::greater(coef, 0.0))
+      {
+         if (ubfinite)
+            activities[row].max += coef * (newub - oldub);
+         else
+         {
+            activities[row].max += coef * newub;
+            --activities[row].ninfmax;
+         }
+      }
+      else
+      {
+         if (ubfinite)
+            activities[row].min += coef * (newub - oldub);
+         else
+         {
+            activities[row].min += coef * newub;
+            --activities[row].ninfmin;
+         }
+      }
+
+      if ((!Num::less(activities[row].min, rhs[row]) &&
+           !activities[row].ninfmin) ||
+          (!Num::greater(activities[row].max, lhs[row]) &&
+           !activities[row].ninfmax))
+      {
+         Message::debug("Act update: row {} activities {} {}, sides {} {}",
+                        row,
+                        activities[row].min,
+                        activities[row].max,
+                        lhs[row],
+                        rhs[row]);
+         return false;
+      }
+   }
+
+   return true;
+}
+
+bool
+updateActivities(VectorView<double> colview,
+                 double oldlb,
+                 double newlb,
+                 double oldub,
+                 double newub,
+                 std::vector<Activity>& activities,
+                 const std::vector<double>& lhs,
+                 const std::vector<double>& rhs)
+{
+   const double* colcoefs = colview.coefs;
+   const size_t* colindices = colview.indices;
+   const size_t colsize = colview.size;
+
+   assert(!Num::isMinusInf(newlb) && !Num::isInf(newub));
+
+   bool lbfinite = !Num::isInf(oldlb);
+   bool ubfinite = !Num::isInf(oldub);
+
+   for (size_t i = 0; i < colsize; ++i)
+   {
+      size_t row = colindices[i];
+      const double coef = colcoefs[i];
+
+      if (Num::greater(coef, 0.0))
+      {
+         if (lbfinite)
+            activities[row].min += coef * (newlb - oldlb);
+         else
+         {
+            activities[row].min += coef * newlb;
+            --activities[row].ninfmin;
+         }
+
+         if (ubfinite)
+            activities[row].max += coef * (newub - oldub);
+         else
+         {
+            activities[row].max += coef * newub;
+            --activities[row].ninfmax;
+         }
+      }
+      else
+      {
+         if (ubfinite)
+            activities[row].min += coef * (newub - oldub);
+         else
+         {
+            activities[row].min += coef * newub;
+            --activities[row].ninfmin;
+         }
+
+         if (lbfinite)
+            activities[row].max += coef * (newlb - oldlb);
+         else
+         {
+            activities[row].max += coef * newlb;
+            --activities[row].ninfmax;
+         }
+      }
+
+      if ((!Num::less(activities[row].min, rhs[row]) &&
+           !activities[row].ninfmin) ||
+          (!Num::greater(activities[row].max, lhs[row]) &&
+           !activities[row].ninfmax))
+      {
+         Message::debug("Act update: row {} activities {} {}, sides {} {}",
+                        row,
+                        activities[row].min,
+                        activities[row].max,
+                        lhs[row],
+                        rhs[row]);
+         return false;
+      }
+   }
+
+   return true;
+}
+
+static bool
+propagateRow(const ProblemView& problem,
+             size_t row,
+             std::vector<Activity>& activities,
+             std::vector<double>& lb,
+             std::vector<double>& ub)
+{
+   auto rowview = problem.getRow(row);
    const double* rowcoefs = rowview.coefs;
    const size_t* rowindices = rowview.indices;
    const size_t rowsize = rowview.size;
+
+   auto& activity = activities[row];
+
+   auto& integer = problem.integer();
+
+   auto& lhs = problem.getLHS();
+   auto& rhs = problem.getRHS();
+
+   double impliedlb;
+   double impliedub;
 
    for (size_t i = 0; i < rowsize; ++i)
    {
       size_t col = rowindices[i];
       double coef = rowcoefs[i];
 
-      double impliedlb;
-      double impliedub;
       double maxPartialActivity = activity.max;
       double minPartialActivity = activity.min;
 
+      bool implbfinite = false;
+      bool impubfinite = false;
+
+      const bool ubInf = Num::isInf(ub[col]);
+      const bool lbInf = Num::isMinusInf(lb[col]);
+
       if (Num::greater(coef, 0.0))
       {
-         maxPartialActivity -= coef * ub[col];
-         minPartialActivity -= coef * lb[col];
+         if (!ubInf)
+            maxPartialActivity -= coef * ub[col];
+
+         if (!lbInf)
+            minPartialActivity -= coef * lb[col];
 
          if (integer[col])
          {
-            impliedlb = Num::ceil((lhs - maxPartialActivity) / coef);
-            impliedub = Num::floor((rhs - minPartialActivity) / coef);
+            impliedlb = Num::ceil((lhs[row] - maxPartialActivity) / coef);
+            impliedub = Num::floor((rhs[row] - minPartialActivity) / coef);
          }
          else
          {
-            impliedlb = (lhs - maxPartialActivity) / coef;
-            impliedub = (rhs - minPartialActivity) / coef;
+            impliedlb = (lhs[row] - maxPartialActivity) / coef;
+            impliedub = (rhs[row] - minPartialActivity) / coef;
          }
+
+         implbfinite =
+           activity.ninfmax == 0 || (activity.ninfmax == 1 && ubInf);
+         impubfinite =
+           activity.ninfmin == 0 || (activity.ninfmin == 1 && lbInf);
       }
       else
       {
          assert(coef != 0.0);
-         maxPartialActivity -= coef * lb[col];
-         minPartialActivity -= coef * ub[col];
+
+         if (!lbInf)
+            maxPartialActivity -= coef * lb[col];
+         if (!ubInf)
+            minPartialActivity -= coef * ub[col];
 
          if (integer[col])
          {
-            impliedlb = Num::ceil((rhs - minPartialActivity) / coef);
-            impliedub = Num::floor((lhs - maxPartialActivity) / coef);
+            impliedlb = Num::ceil((rhs[row] - minPartialActivity) / coef);
+            impliedub = Num::floor((lhs[row] - maxPartialActivity) / coef);
          }
          else
          {
-            impliedlb = (rhs - minPartialActivity) / coef;
-            impliedub = (lhs - maxPartialActivity) / coef;
+            impliedlb = (rhs[row] - minPartialActivity) / coef;
+            impliedub = (lhs[row] - maxPartialActivity) / coef;
          }
 
-         // TODO
+         implbfinite =
+           activity.ninfmin == 0 || (activity.ninfmin == 1 && lbInf);
+         impubfinite =
+           activity.ninfmax == 0 || (activity.ninfmax == 1 && ubInf);
       }
 
-      if (!Num::less(activity.min, rhs) || !Num::greater(activity.max, lhs))
+      auto colview = problem.getCol(col);
+
+      if ((Num::greater(impliedlb, lb[col]) && implbfinite) &&
+          (Num::less(impliedub, ub[col]) && impubfinite))
       {
-         Message::debug("Propagation detected infesiblity 1");
-         return false;
-      }
-
-      bool updateActivities = false;
-
-      if (Num::greater(impliedlb, lb[col]))
-      {
-
-         ++nbndchg;
-         updateActivities = true;
-         if (Num::greater(coef, 0.0))
-            activity.min += coef * (impliedlb - lb[col]);
-         else
-            activity.max += coef * (impliedlb - lb[col]);
-      }
-
-      if (Num::greater(impliedub, ub[col]))
-      {
-         ++nbndchg;
-         updateActivities = true;
-         if (Num::greater(coef, 0.0))
-            activity.max += coef * (impliedub - ub[col]);
-         else
-            activity.min += coef * (impliedub - ub[col]);
-      }
-
-      if (updateActivities)
-      {
-         if (callback(col, impliedlb, impliedub))
-         {
-            Message::debug("Propagation detected infesiblity 2");
+         Message::debug(
+           "Propagation changed Bs of col {} from [{}, {}] -> {{}, {}]",
+           col,
+           lb[col],
+           ub[col],
+           impliedlb,
+           impliedub);
+         // update right and left
+         if (!updateActivities(colview,
+                               lb[col],
+                               impliedlb,
+                               ub[col],
+                               impliedub,
+                               activities,
+                               lhs,
+                               rhs))
             return false;
-         }
+
+         lb[col] = impliedlb;
+         ub[col] = impliedub;
+      }
+      else if (Num::greater(impliedlb, lb[col]) && implbfinite)
+      {
+         Message::debug("Propagation changed LB of col {} from {} -> {}",
+                        col,
+                        lb[col],
+                        impliedlb);
+         // update left
+         if (!updateActivities<ChangedBound::LOWER>(
+               colview, lb[col], impliedlb, activities, lhs, rhs))
+            return false;
+
+         lb[col] = impliedlb;
+      }
+      else if (Num::less(impliedub, ub[col]) && impubfinite)
+      {
+         Message::debug("Propagation changed UB of col {}: {} --> {}",
+                        col,
+                        ub[col],
+                        impliedub);
+         // update right
+         if (!updateActivities<ChangedBound::UPPER>(
+               colview, ub[col], impliedub, activities, lhs, rhs))
+            return false;
+
+         ub[col] = impliedub;
       }
    }
-
-   Message::debug("Propagation changed {} bounds", nbndchg);
 
    return true;
 }
@@ -129,9 +357,6 @@ propagate(const ProblemView& problem,
 {
    assert(lb[changedcol] == ub[changedcol]);
 
-   const auto& lhs = problem.getLHS();
-   const auto& rhs = problem.getRHS();
-   const auto& integer = problem.integer();
    size_t nrows = problem.getNRows();
    size_t ncols = problem.getNCols();
 
@@ -141,49 +366,6 @@ propagate(const ProblemView& problem,
 
    changedCols.push_back(changedcol);
    colChanged[changedcol] = true;
-
-   const auto propagation_callback =
-     [&](size_t col, double newlb, double newub) -> bool {
-      assert(newlb != lb[col] || newub != ub[col]);
-
-      // add it to the candidate list of propagation if not already there
-      if (!colChanged[col])
-      {
-         changedCols.push_back(col);
-         colChanged[col] = true;
-      }
-
-      auto colview = problem.getCol(col);
-      auto colindices = colview.indices;
-      auto colcoefs = colview.coefs;
-      size_t colsize = colview.size;
-
-      Message::debug("updating activities {}", colsize);
-
-      for (size_t i = 0; i < colsize; ++i)
-      {
-         const size_t row = colindices[i];
-         const double coef = colcoefs[i];
-
-         if (Num::greater(coef, 0.0))
-         {
-            activities[row].min += coef * (newlb - lb[col]);
-            activities[row].max += coef * (newub - ub[col]);
-         }
-         else
-         {
-            activities[row].min += coef * (newub - ub[col]);
-            activities[row].max += coef * (newlb - lb[col]);
-         }
-
-         // stop and return
-         if (!Num::less(activities[row].min, rhs[row]) ||
-             !Num::greater(activities[row].max, lhs[row]))
-            return true;
-      }
-
-      return false;
-   };
 
    for (size_t i = 0; i < changedCols.size(); ++i)
    {
@@ -201,14 +383,7 @@ propagate(const ProblemView& problem,
 
          // propagate row
          // will update the candidate list through the callback
-         if (!propagateRow(problem.getRow(row),
-                           lhs[row],
-                           rhs[row],
-                           activities[row],
-                           lb,
-                           ub,
-                           integer,
-                           propagation_callback))
+         if (!propagateRow(problem, row, activities, lb, ub))
             return false;
       }
 
@@ -226,94 +401,4 @@ propagate(const ProblemView& problem,
    }
 
    return 0;
-}
-
-enum class ChangedBound : uint8_t
-{
-   LOWER,
-   UPPER,
-};
-
-template<ChangedBound chgbd>
-void
-updateActivities(VectorView<double> colview,
-                 double oldb,
-                 double newb,
-                 std::vector<Activity>& activities);
-
-template<>
-void
-updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
-                                      double oldb,
-                                      double newb,
-                                      std::vector<Activity>& activities)
-{
-   const double* colcoefs = colview.coefs;
-   const size_t* colindices = colview.indices;
-   const size_t colsize = colview.size;
-
-   for (size_t i = 0; i < colsize; ++i)
-   {
-      size_t row = colindices[i];
-      const double coef = colcoefs[i];
-
-      if (Num::greater(coef, 0.0))
-         activities[row].min += coef * (newb - oldb);
-      else
-         activities[row].max += coef * (newb - oldb);
-   }
-}
-
-template<>
-void
-updateActivities<ChangedBound::UPPER>(VectorView<double> colview,
-                                      double oldb,
-                                      double newb,
-                                      std::vector<Activity>& activities)
-{
-   const double* colcoefs = colview.coefs;
-   const size_t* colindices = colview.indices;
-   const size_t colsize = colview.size;
-
-   for (size_t i = 0; i < colsize; ++i)
-   {
-      size_t row = colindices[i];
-      const double coef = colcoefs[i];
-
-      if (Num::greater(coef, 0.0))
-         activities[row].max += coef * (newb - oldb);
-      else
-         activities[row].min += coef * (newb - oldb);
-   }
-}
-
-// TODO make a specialization for changes only in one bound
-void
-updateActivities(VectorView<double> colview,
-                 double oldlb,
-                 double newlb,
-                 double oldub,
-                 double newub,
-                 std::vector<Activity>& activities)
-{
-   const double* colcoefs = colview.coefs;
-   const size_t* colindices = colview.indices;
-   const size_t colsize = colview.size;
-
-   for (size_t i = 0; i < colsize; ++i)
-   {
-      size_t row = colindices[i];
-      const double coef = colcoefs[i];
-
-      if (Num::greater(coef, 0.0))
-      {
-         activities[row].min += coef * (newlb - oldlb);
-         activities[row].max += coef * (newub - oldub);
-      }
-      else
-      {
-         activities[row].min += coef * (newub - oldub);
-         activities[row].max += coef * (newlb - oldlb);
-      }
-   }
 }

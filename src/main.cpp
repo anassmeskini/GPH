@@ -9,7 +9,6 @@
 #include "io/ArgParser.h"
 #include "io/MPSReader.h"
 #include "methods/TrivialSolutions.h"
-
 #include <memory>
 
 int

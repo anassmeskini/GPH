@@ -43,14 +43,22 @@ TrivialSolutions::search(const ProblemView& problem)
          if (!colFixed[col] && lb[col] != ub[col])
          {
             colFixed[col] = true;
-            updateActivities(problem.getCol(col),
-                             lb[col],
-                             lb[col],
-                             ub[col],
-                             lb[col],
-                             activities);
+
+            bool feasible = updateActivities<ChangedBound::UPPER>(
+              problem.getCol(col), ub[col], lb[col], activities, rhs, lhs);
+
             ub[col] = lb[col];
-            propagate(problem, lb, ub, activities, col);
+
+            if (!feasible)
+            {
+               Message::debug("unfeasible", row, nrows);
+            }
+
+            if (!propagate(problem, lb, ub, activities, col))
+            {
+               Message::debug("propagation failed!", row, nrows);
+               return {};
+            }
          }
 
          solActivity[row] += lb[col] * coef;

@@ -44,6 +44,8 @@ ProblemView::ProblemView(MIP<double>&& _mip, std::vector<double>&& _lpSol)
       double solActivity = 0.0;
       double minActivity = 0.0;
       double maxActivity = 0.0;
+      int ninfmax = 0;
+      int ninfmin = 0;
 
       // TODO use fold expressions
       auto rowview = mip.getRow(row);
@@ -64,8 +66,15 @@ ProblemView::ProblemView(MIP<double>&& _mip, std::vector<double>&& _lpSol)
 
          if (Num::greater(coef, 0.0))
          {
-            minActivity += coef * lb[col];
-            maxActivity += coef * ub[col];
+            if (!Num::isMinusInf(lb[col]))
+               minActivity += coef * lb[col];
+            else
+               ++ninfmin;
+
+            if (!Num::isInf(ub[col]))
+               maxActivity += coef * ub[col];
+            else
+               ++ninfmax;
 
             if (lhsfinite)
                ++downLocks[col];
@@ -74,8 +83,15 @@ ProblemView::ProblemView(MIP<double>&& _mip, std::vector<double>&& _lpSol)
          }
          else
          {
-            minActivity += coef * ub[col];
-            maxActivity += coef * lb[col];
+            if (!Num::isInf(ub[col]))
+               minActivity += coef * ub[col];
+            else
+               ++ninfmin;
+
+            if (!Num::isMinusInf(lb[col]))
+               maxActivity += coef * lb[col];
+            else
+               ++ninfmax;
 
             if (lhsfinite)
                ++upLocks[col];
@@ -84,9 +100,13 @@ ProblemView::ProblemView(MIP<double>&& _mip, std::vector<double>&& _lpSol)
          }
       }
 
+      assert(!Num::isMinusInf(minActivity) && !Num::isInf(maxActivity));
+
       lpSolActivity[row] = solActivity;
       activities[row].min = minActivity;
       activities[row].max = maxActivity;
+      activities[row].ninfmin = ninfmin;
+      activities[row].ninfmax = ninfmax;
    }
 }
 
