@@ -58,7 +58,22 @@ else()
    message(FATAL_ERROR "LP solver NOT found")
 endif()
 
-include_directories(${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external SYSTEM ${Boost_INCLUDE_DIRS} ${LPSOLVER_INCLUDE_DIRS})
-target_link_libraries(lps PRIVATE ${Boost_LIBRARIES} ${TBB_IMPORTED_TARGETS} ${LPSOLVER_LIBRARIES})
+find_package(ZLIB)
+if(NOT ZLIB_FOUND)
+   message(FATAL_ERROR "ZLIB not found")
+endif()
+
+include_directories(${PROJECT_SOURCE_DIR}/src
+                    ${PROJECT_SOURCE_DIR}/external 
+                    SYSTEM
+                    ${Boost_INCLUDE_DIRS} 
+                    ${LPSOLVER_INCLUDE_DIRS}
+                    ${ZLIB_INCLUDE_LIBRARIES})
+
+target_link_libraries(lps PRIVATE 
+                      ${Boost_LIBRARIES}
+                      ${TBB_IMPORTED_TARGETS}
+                      ${LPSOLVER_LIBRARIES}
+                      ${ZLIB_LIBRARIES})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
