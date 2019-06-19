@@ -66,6 +66,7 @@ endif()
 include_directories(${PROJECT_SOURCE_DIR}/src
                     ${PROJECT_SOURCE_DIR}/external 
                     SYSTEM
+                    ${TBB_INCLUDE_DIRS}
                     ${Boost_INCLUDE_DIRS} 
                     ${LPSOLVER_INCLUDE_DIRS}
                     ${ZLIB_INCLUDE_LIBRARIES})
