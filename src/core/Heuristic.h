@@ -1,7 +1,7 @@
 #ifndef _HEURISTIC_HPP
 #define _HEURISTIC_HPP
 
-#include "AvaiLPSolver.h"
+#include "MySolver.h"
 #include "Common.h"
 #include "MIP.h"
 #include "Problem.h"
@@ -25,7 +25,7 @@ class Heuristics
 
    Heuristics(const std::initializer_list<HeuristicMethod*>&);
 
-   std::optional<std::vector<double>> run(MIP<double>&&);
+   void run(MIP<double>&&);
 
    private:
    std::vector<std::unique_ptr<HeuristicMethod>> heuristics;

@@ -6,15 +6,6 @@
 
 #include <vector>
 
-enum class ValueType : std::uint8_t
-{
-   BINARY_FRACTIONAL,
-   INTEGER_FRACTIONAL,
-   INTEGER_VALUE,
-   CONTINUOUS_VARIABLE,
-};
-
-// adapter class, to pass to the heuristic algorithms as arguments
 class ProblemView
 {
    public:
@@ -41,8 +32,6 @@ class ProblemView
 
    const std::vector<double>& getLPSol() const;
 
-   ValueType getValueType(size_t) const;
-
    const std::vector<double>& getSolActivity() const;
 
    private:
@@ -57,7 +46,6 @@ class ProblemView
    std::vector<double> lpSolActivity;
 
    std::vector<size_t> fractional;
-   std::vector<ValueType> valuesType;
 
    std::vector<size_t> downLocks;
    std::vector<size_t> upLocks;

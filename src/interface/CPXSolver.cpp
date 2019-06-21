@@ -26,8 +26,9 @@ CPXSolver::CPXSolver(const MIP<double>& mip)
    for (size_t var = 0; var < mip.getNCols(); ++var)
    {
       assert(var < varNames.size());
-      variables.add(IloNumVar(env, lb[var], ub[var], varNames[var].c_str()));
       assert(var < obj.size());
+
+      variables.add(IloNumVar(env, lb[var], ub[var], varNames[var].c_str()));
       objExpr += variables[var] * obj[var];
    }
 
@@ -43,7 +44,6 @@ CPXSolver::CPXSolver(const MIP<double>& mip)
          rowExpr += rowView.coefs[id] * variables[indices[id]];
 
       IloConstraint cons(lhs[row] <= rowExpr <= rhs[row]);
-      cons.setName(consNames[row].c_str());
       constraints.add(lhs[row] <= rowExpr <= rhs[row]);
    }
 
@@ -114,7 +114,7 @@ CPXSolver::solve()
 std::unique_ptr<LPSolver<double>>
 CPXSolver::clone() const
 {
-   return std::unique_ptr<LPSolver<double>>(new CPXSolver(*this));
+   return  std::make_unique<CPXSolver>(*this);
 }
 
 LPResult

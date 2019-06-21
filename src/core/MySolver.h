@@ -6,11 +6,11 @@
 #include "interface/SPXSolver.h"
 
 #ifdef CONCERT_CPLEX_FOUND
-using AvaiLPSolver = CPXSolver;
+using MySolver = CPXSolver;
 #elif SOPLEX_FOUND
-using AvaiLPSolver = SPXSolver;
+using MySolver = SPXSolver;
 #elif GLPK_FOUND
-using AvaiLPSolver = GLPKSolver;
+using MySolver = GLPKSolver;
 #endif
 
 #endif

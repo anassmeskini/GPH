@@ -8,7 +8,6 @@ GLPKSolver::GLPKSolver(const MIP<double>& mip)
   , ncols(mip.getNCols())
   , nrows(mip.getNRows())
 {
-
    const auto& lb = mip.getLB();
    const auto& ub = mip.getUB();
    const auto& obj = mip.getObj();
@@ -22,8 +21,6 @@ GLPKSolver::GLPKSolver(const MIP<double>& mip)
    glp_add_cols(problem, ncols);
 
    constexpr double inf = std::numeric_limits<double>::infinity();
-
-   //
 
    for (size_t col = 0; col < ncols; ++col)
    {
@@ -146,7 +143,7 @@ GLPKSolver::solve(LPAlgorithm alg)
    if (!barrier)
       ret = glp_simplex(problem, &param);
    else
-      glp_interior(problem, nullptr);
+      ret = glp_interior(problem, nullptr);
    // TODO
 
    LPResult result;
@@ -197,7 +194,7 @@ GLPKSolver::GLPKSolver(const GLPKSolver& glpksolver)
 std::unique_ptr<LPSolver<double>>
 GLPKSolver::clone() const
 {
-   return std::unique_ptr<LPSolver<double>>(new GLPKSolver(*this));
+   return std::make_unique<GLPKSolver>(*this);
 }
 
 GLPKSolver::~GLPKSolver()

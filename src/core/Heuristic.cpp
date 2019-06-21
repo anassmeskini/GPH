@@ -1,5 +1,4 @@
 #include "Heuristic.h"
-#include "AvaiLPSolver.h"
 #include "LPFactory.h"
 #include "Numerics.h"
 #include "io/Message.h"
@@ -16,7 +15,7 @@ Heuristics::Heuristics(const std::initializer_list<HeuristicMethod*>& list)
       heuristics.emplace_back(handle);
 }
 
-std::optional<std::vector<double>>
+void
 Heuristics::run(MIP<double>&& mip)
 {
    LPFactory lpFactory(mip);
@@ -24,16 +23,16 @@ Heuristics::run(MIP<double>&& mip)
    auto solver = lpFactory.getOriginal();
    auto result = solver->solve();
 
-   ProblemView problem(std::move(mip), std::move(result.primalSolution));
-
    Message::print("LP solver return status: {}\n", to_str(result.status));
 
    // TODO throw exception ??
    if (result.status != LPResult::OPTIMAL)
-      return {};
+      assert(0);
 
    else if (result.status == LPResult::OPTIMAL)
       Message::print("obj: {}\n", result.obj);
+
+   ProblemView problem(std::move(mip), std::move(result.primalSolution));
 
    auto run = [this, &problem](tbb::blocked_range<size_t>& range) {
       for (size_t i = range.begin(); i != range.end(); ++i)
@@ -42,6 +41,4 @@ Heuristics::run(MIP<double>&& mip)
 
    tbb::parallel_for(tbb::blocked_range<size_t>{ 0, heuristics.size() },
                      std::move(run));
-
-   return {};
 }

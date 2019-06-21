@@ -8,7 +8,6 @@ ProblemView::ProblemView(MIP<double>&& _mip, std::vector<double>&& _lpSol)
   , activities(nrows)
   , lpSol(_lpSol)
   , lpSolActivity(nrows)
-  , valuesType(ncols)
   , downLocks(ncols, 0)
   , upLocks(ncols, 0)
 {
@@ -17,26 +16,6 @@ ProblemView::ProblemView(MIP<double>&& _mip, std::vector<double>&& _lpSol)
    const auto& ub = mip.getUB();
    const auto& lhs = mip.getLHS();
    const auto& rhs = mip.getRHS();
-
-   for (size_t i = 0; i < ncols; ++i)
-   {
-      if (integer[i])
-      {
-         if (Num::isIntegral(lpSol[i]))
-            valuesType[i] = ValueType::INTEGER_VALUE;
-         else
-         {
-            fractional.push_back(i);
-
-            if (lb[i] == 0.0 && ub[i] == 1.0)
-               valuesType[i] = ValueType::BINARY_FRACTIONAL;
-            else
-               valuesType[i] = ValueType::INTEGER_FRACTIONAL;
-         }
-      }
-      else
-         valuesType[i] = ValueType::CONTINUOUS_VARIABLE;
-   }
 
    // compute activites and locks
    for (size_t row = 0; row < nrows; ++row)
@@ -162,12 +141,6 @@ const std::vector<double>&
 ProblemView::getLPSol() const
 {
    return lpSol;
-}
-
-ValueType
-ProblemView::getValueType(size_t col) const
-{
-   return valuesType[col];
 }
 
 const std::vector<double>&

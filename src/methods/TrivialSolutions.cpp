@@ -24,8 +24,7 @@ TrivialSolutions::search(const ProblemView& problem)
    std::vector<double> lb = problem.getLB();
    std::vector<double> ub = problem.getUB();
 
-   std::vector<double> solActivity(ncols, 0.0);
-   bitset colFixed(ncols, false);
+   std::vector<double> solActivity(nrows, 0.0);
 
    // try solution = lb
    for (size_t row = 0; row < nrows; ++row)
@@ -40,12 +39,10 @@ TrivialSolutions::search(const ProblemView& problem)
          size_t col = rowindices[colid];
          double coef = rowcoefs[colid];
 
-         if (!colFixed[col] && lb[col] != ub[col])
+         if (lb[col] != ub[col])
          {
-            colFixed[col] = true;
-
             bool feasible = updateActivities<ChangedBound::UPPER>(
-              problem.getCol(col), ub[col], lb[col], activities, rhs, lhs);
+              problem.getCol(col), ub[col], lb[col], activities, lhs, rhs);
 
             ub[col] = lb[col];
 

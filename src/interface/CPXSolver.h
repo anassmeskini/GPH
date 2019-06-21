@@ -22,20 +22,16 @@ class CPXSolver : public LPSolver<double>
 
    virtual std::unique_ptr<LPSolver<double>> clone() const override;
 
-   // using IntParam = std::pair<IloCplex::IntParam, int>;
-
-   // using BoolParam = std::pair<IloCplex::BoolParam, bool>;
-
    private:
    IloEnv env;
    IloModel model;
    IloNumVarArray variables;
    IloRangeArray constraints;
    IloCplex cplex;
+   bool deleteEnv;
 
    size_t ncols;
    size_t nrows;
-   bool deleteEnv;
 };
 
 #endif

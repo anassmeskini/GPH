@@ -92,7 +92,7 @@ SPXSolver::solve()
 std::unique_ptr<LPSolver<double>>
 SPXSolver::clone() const
 {
-  return std::unique_ptr<LPSolver<double>>(new SPXSolver(*this));
+  return std::make_unique<SPXSolver>(*this);
 }
 
 SPXSolver::~SPXSolver() {}

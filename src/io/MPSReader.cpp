@@ -643,7 +643,7 @@ mpsreader::parse(const std::string& filename)
                                           rowSize,
                                           varNames);
                t1 = Timer::now();
-               fmt::print("Section COLUMNS parsed in {}\n",
+               fmt::print("Section COLUMNS parsed in {:0.2f}s\n",
                           Timer::seconds(t1, t0));
                break;
             case RHS:

@@ -3,7 +3,7 @@
 #include "Numerics.h"
 #include "io/Message.h"
 
-#include <memory>
+
 template<>
 bool
 updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
@@ -18,6 +18,7 @@ updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
    const size_t colsize = colview.size;
 
    assert(!Num::isInf(newlb));
+
    bool lbfinite = !Num::isInf(oldlb);
 
    for (size_t i = 0; i < colsize; ++i)
@@ -46,12 +47,12 @@ updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
          }
       }
 
-      if ((!Num::less(activities[row].min, rhs[row]) &&
+      if ((Num::greater(activities[row].min, rhs[row]) &&
            !activities[row].ninfmin) ||
-          (!Num::greater(activities[row].max, lhs[row]) &&
+          (Num::less(activities[row].max, lhs[row]) &&
            !activities[row].ninfmax))
       {
-         Message::debug("Act update: row {} activities {} {}, sides {} {}",
+         Message::debug("Act update infeasiblity: row {} activities {} {}, sides {} {}",
                         row,
                         activities[row].min,
                         activities[row].max,
@@ -106,12 +107,13 @@ updateActivities<ChangedBound::UPPER>(VectorView<double> colview,
          }
       }
 
-      if ((!Num::less(activities[row].min, rhs[row]) &&
+      // TODO check if activity.min > activity.max
+      if ((Num::greater(activities[row].min, rhs[row]) &&
            !activities[row].ninfmin) ||
-          (!Num::greater(activities[row].max, lhs[row]) &&
+          (Num::less(activities[row].max, lhs[row]) &&
            !activities[row].ninfmax))
       {
-         Message::debug("Act update: row {} activities {} {}, sides {} {}",
+         Message::debug("Act update infeasility: row {} activities {} {}, sides {} {}",
                         row,
                         activities[row].min,
                         activities[row].max,
@@ -185,12 +187,12 @@ updateActivities(VectorView<double> colview,
          }
       }
 
-      if ((!Num::less(activities[row].min, rhs[row]) &&
+      if ((Num::greater(activities[row].min, rhs[row]) &&
            !activities[row].ninfmin) ||
-          (!Num::greater(activities[row].max, lhs[row]) &&
+          (Num::less(activities[row].max, lhs[row]) &&
            !activities[row].ninfmax))
       {
-         Message::debug("Act update: row {} activities {} {}, sides {} {}",
+         Message::debug("Act update infeasibility: row {} activities {} {}, sides {} {}",
                         row,
                         activities[row].min,
                         activities[row].max,
@@ -208,7 +210,8 @@ propagateRow(const ProblemView& problem,
              size_t row,
              std::vector<Activity>& activities,
              std::vector<double>& lb,
-             std::vector<double>& ub)
+             std::vector<double>& ub,
+             std::vector<size_t>& changedCols)
 {
    auto rowview = problem.getRow(row);
    const double* rowcoefs = rowview.coefs;
@@ -217,10 +220,10 @@ propagateRow(const ProblemView& problem,
 
    auto& activity = activities[row];
 
-   auto& integer = problem.integer();
+   const auto& integer = problem.integer();
 
-   auto& lhs = problem.getLHS();
-   auto& rhs = problem.getRHS();
+   const auto& lhs = problem.getLHS();
+   const auto& rhs = problem.getRHS();
 
    double impliedlb;
    double impliedub;
@@ -295,7 +298,7 @@ propagateRow(const ProblemView& problem,
           (Num::less(impliedub, ub[col]) && impubfinite))
       {
          Message::debug(
-           "Propagation changed Bs of col {} from [{}, {}] -> {{}, {}]",
+           "Propagation changed Bds of col {} from [{}, {}] -> {{}, {}]",
            col,
            lb[col],
            ub[col],
@@ -314,6 +317,7 @@ propagateRow(const ProblemView& problem,
 
          lb[col] = impliedlb;
          ub[col] = impliedub;
+         changedCols.push_back(col);
       }
       else if (Num::greater(impliedlb, lb[col]) && implbfinite)
       {
@@ -327,6 +331,7 @@ propagateRow(const ProblemView& problem,
             return false;
 
          lb[col] = impliedlb;
+         changedCols.push_back(col);
       }
       else if (Num::less(impliedub, ub[col]) && impubfinite)
       {
@@ -340,6 +345,7 @@ propagateRow(const ProblemView& problem,
             return false;
 
          ub[col] = impliedub;
+         changedCols.push_back(col);
       }
    }
 
@@ -361,17 +367,14 @@ propagate(const ProblemView& problem,
    size_t ncols = problem.getNCols();
 
    std::vector<size_t> changedCols;
-   bitset colChanged(ncols, false);
-   changedCols.reserve(nrows);
+   // is this a bug?
+   //changedCols.reserve(ncols);
 
    changedCols.push_back(changedcol);
-   colChanged[changedcol] = true;
 
    for (size_t i = 0; i < changedCols.size(); ++i)
    {
       const size_t col = changedCols[i];
-
-      assert(colChanged[col]);
 
       auto colview = problem.getCol(col);
       const size_t* colindices = colview.indices;
@@ -382,12 +385,9 @@ propagate(const ProblemView& problem,
          const size_t row = colindices[j];
 
          // propagate row
-         // will update the candidate list through the callback
-         if (!propagateRow(problem, row, activities, lb, ub))
-            return false;
+         if (!propagateRow(problem, row, activities, lb, ub, changedCols))
+            return 0;
       }
-
-      colChanged[col] = false;
 
       if (changedCols.size() >= ncols)
       {
@@ -400,5 +400,5 @@ propagate(const ProblemView& problem,
       }
    }
 
-   return 0;
+   return 1;
 }

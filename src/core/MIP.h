@@ -63,8 +63,8 @@ class MIP
       const size_t* indBegin =
         constMatrix.indices.data() + constMatrix.rowStart[row];
       size_t size = constMatrix.rowStart[row + 1] - constMatrix.rowStart[row];
-      VectorView<REAL> view(coefBegin, indBegin, size);
-      return view;
+
+      return {coefBegin, indBegin, size};
    }
 
    VectorView<REAL> getCol(size_t col) const
@@ -74,7 +74,8 @@ class MIP
       const size_t* indBegin =
         constMatrixT.indices.data() + constMatrixT.rowStart[col];
       size_t size = constMatrixT.rowStart[col + 1] - constMatrixT.rowStart[col];
-      return VectorView<REAL>(coefBegin, indBegin, size);
+
+      return {coefBegin, indBegin, size};
    }
 
    private:

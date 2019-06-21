@@ -1,4 +1,4 @@
-#include "core/AvaiLPSolver.h"
+#include "core/MySolver.h"
 #include "core/Common.h"
 #include "core/Heuristic.h"
 #include "core/LPSolver.h"
@@ -14,23 +14,22 @@
 int
 main(int argc, char** argv)
 {
-   auto optarginfo = parseArgs(argc, argv);
+   std::optional<ArgInfo> optionalArgs = parseArgs(argc, argv);
 
-   if (!optarginfo)
+   if (!optionalArgs)
       return 1;
 
-   auto arginfo = optarginfo.value();
+   auto args = optionalArgs.value();
 
    MIP<double> mip;
-   std::string filename(arginfo.probFile);
-
+   std::string filename(args.probFile);
    try
    {
       auto t0 = Timer::now();
       mip = mpsreader::parse(filename);
       auto t1 = Timer::now();
 
-      fmt::print("Reading the problem took: {}\n", Timer::seconds(t1, t0));
+      fmt::print("Reading the problem took: {:0.2f}s", Timer::seconds(t1, t0));
    }
    catch (const std::exception& ex)
    {
@@ -39,7 +38,6 @@ main(int argc, char** argv)
    }
 
    Heuristics heur({ new TrivialSolutions });
-
    heur.run(std::move(mip));
 
    return 0;

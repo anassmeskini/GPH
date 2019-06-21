@@ -37,16 +37,6 @@ struct VectorView
    size_t size;
 };
 
-struct Time
-{
-   // TODO use tbb
-   using time_point = std::chrono::high_resolution_clock::time_point;
-
-   static time_point now();
-
-   static double seconds(time_point, time_point);
-};
-
 struct Activity
 {
    double min = 0.0;
@@ -95,8 +85,5 @@ checkFeasibility(const MIP<REAL>& mip,
 
    return true;
 }
-
-SparseMatrix<double>
-compress(const std::vector<double>& denseCoefs, size_t ncols);
 
 #endif

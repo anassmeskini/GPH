@@ -13,6 +13,7 @@ struct LPResult
       INFEASIBLE,
       UNBOUNDED,
       OPTIMAL,
+      ILL_CONDITIONED,
       OTHER
    } status;
 
@@ -35,7 +36,7 @@ template<typename REAL>
 class LPSolver
 {
    public:
-   virtual ~LPSolver(){};
+   virtual ~LPSolver() = default;
 
    virtual LPResult solve() = 0;
 
@@ -47,11 +48,9 @@ class LPSolver
 template<typename REAL>
 LPResult LPSolver<REAL>::solve(LPAlgorithm)
 {
-   solve();
-
    fmt::print("Info: specified LP algorithm was ignored");
 
-   return {};
+   return solve();
 }
 
 #endif

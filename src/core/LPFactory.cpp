@@ -1,10 +1,10 @@
 #include "LPFactory.h"
-#include "AvaiLPSolver.h"
+#include "MySolver.h"
 
 #include <mutex>
 
 LPFactory::LPFactory(const MIP<double>& mip)
-  : original(new AvaiLPSolver(mip))
+  : original(new MySolver(mip))
 {
 }
 
