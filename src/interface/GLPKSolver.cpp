@@ -192,7 +192,7 @@ GLPKSolver::GLPKSolver(const GLPKSolver& glpksolver)
 }
 
 std::unique_ptr<LPSolver<double>>
-GLPKSolver::clone() const
+GLPKSolver::makeCopy() const
 {
    return std::make_unique<GLPKSolver>(*this);
 }
@@ -200,6 +200,25 @@ GLPKSolver::clone() const
 GLPKSolver::~GLPKSolver()
 {
    glp_delete_prob(problem);
+}
+
+void GLPKSolver::branch(int col, double val, Direction direction){
+   glp_add_rows(problem, 1);
+   ++nrows;
+
+   const double one = 1.0;
+   const int glpCol = col + 1;
+
+   glp_set_mat_row(problem,
+                  nrows,
+                  1,
+                  &glpCol - 1,
+                  &one -1);
+
+   if(direction == Direction::UP)
+       glp_set_row_bnds(problem, nrows, GLP_LO, val, 0.0);
+   else
+       glp_set_row_bnds(problem, nrows, GLP_UP, 0.0, val);
 }
 
 #endif // GLPK_FOUND

@@ -4,7 +4,15 @@
 #include <mutex>
 
 LPFactory::LPFactory(const MIP<double>& mip)
-  : original(new MySolver(mip))
+  : solver(new MySolver(mip))
+{
+}
+
+LPFactory::LPFactory(const LPFactory& other) : solver(std::move(other.solver->clone()))
+{
+}
+
+LPFactory::LPFactory(LPFactory&& source) : solver(source.solver)
 {
 }
 
@@ -13,17 +21,21 @@ LPFactory::get() const
 {
    std::lock_guard<tbb::mutex> lock(copyLock);
 
-   return original->clone();
+   return solver->clone();
 }
 
-std::shared_ptr<LPSolver<double>>
-LPFactory::getOriginal()
+LPResult
+LPFactory::solve()
 {
-   return { original };
+   std::lock_guard<tbb::mutex> lock(copyLock);
+
+   return solver->solve();
 }
 
 void
-LPFactory::solve()
+LPFactory::branch(size_t col, double val, Direction direction)
 {
-   original->solve();
+   solver->branch(col, val, direction);
 }
+
+

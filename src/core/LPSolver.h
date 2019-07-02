@@ -4,6 +4,8 @@
 #include "MIP.h"
 #include "fmt/format.h"
 #include <memory>
+#include <mutex>
+#include <tbb/mutex.h>
 #include <vector>
 
 struct LPResult
@@ -32,6 +34,12 @@ enum class LPAlgorithm
    AUTO
 };
 
+enum class Direction
+{
+   UP,
+   Down
+};
+
 template<typename REAL>
 class LPSolver
 {
@@ -42,7 +50,18 @@ class LPSolver
 
    virtual LPResult solve(LPAlgorithm);
 
-   virtual std::unique_ptr<LPSolver<REAL>> clone() const = 0;
+   std::unique_ptr<LPSolver<REAL>> clone() const
+   {
+      std::lock_guard guard(copyLock);
+      return makeCopy();
+   }
+
+   virtual void branch(int column, REAL val, Direction direction) = 0;
+
+   virtual std::unique_ptr<LPSolver<REAL>> makeCopy() const = 0;
+
+   private:
+   mutable tbb::mutex copyLock;
 };
 
 template<typename REAL>

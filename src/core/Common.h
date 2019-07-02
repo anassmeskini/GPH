@@ -1,23 +1,14 @@
 #ifndef _COMMON_HPP_
 #define _COMMON_HPP_
 
+#include "Bitset.h"
+#include "MIP.h"
 #include "Numerics.h"
 #include "SparseMatrix.h"
 
 #include <cassert>
 #include <chrono>
 #include <memory>
-#include <vector>
-
-template<typename REAL>
-class MIP;
-
-#ifndef BOOST_FOUND
-using bitset = std::vector<bool>;
-#else
-#include "boost/dynamic_bitset.hpp"
-using bitset = boost::dynamic_bitset;
-#endif
 
 template<typename REAL>
 struct VectorView
@@ -45,6 +36,12 @@ struct Activity
    int ninfmin = 0;
    int ninfmax = 0;
 };
+
+std::vector<Activity>
+computeActivities(const MIP<double>& mip);
+
+std::vector<double>
+computeSolActivities(const MIP<double>& mip, const std::vector<double>& sol);
 
 template<typename REAL>
 bool

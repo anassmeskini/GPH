@@ -1,4 +1,6 @@
 #include "MPSReader.h"
+#include "core/Common.h"
+#include "core/Numerics.h"
 #include "core/Timer.h"
 #include "fmt/format.h"
 #include <cstring>
@@ -503,6 +505,7 @@ mpsreader::parseBounds(boost::iostreams::filtering_istream& file,
    return END;
 }
 
+// TODO this should be in the MIP constructor
 MIP<double>
 mpsreader::makeMip(const Rows& rows,
                    const Cols& cols,
@@ -564,6 +567,32 @@ mpsreader::makeMip(const Rows& rows,
 
    for (auto& element : rowinfo)
       mip.consNames.push_back(std::move(element.first));
+
+   mip.downLocks.resize(ncols);
+   mip.upLocks.resize(ncols);
+
+   // TODO this needs to be cleaned up
+   for (size_t row = 0; row < nrows; ++row)
+   {
+      auto rowview = mip.getRow(row);
+      size_t rowsize = rowview.size;
+      const double* coefs = rowview.coefs;
+      const size_t* indices = rowview.indices;
+      bool lhsfinite = !Num::isMinusInf(lhs[row]);
+      bool rhsfinite = !Num::isInf(rhs[row]);
+
+      for (size_t id = 0; id < rowsize; ++id)
+      {
+         size_t col = indices[id];
+         double coef = coefs[id];
+         assert(coef != 0.0);
+
+         if (lhsfinite)
+            mip.downLocks[col]++;
+         if (rhsfinite)
+            mip.upLocks[col]++;
+      }
+   }
 
    return mip;
 }
@@ -643,8 +672,8 @@ mpsreader::parse(const std::string& filename)
                                           rowSize,
                                           varNames);
                t1 = Timer::now();
-               fmt::print("Section COLUMNS parsed in {:0.2f}s\n",
-                          Timer::seconds(t1, t0));
+               /*fmt::print("Section COLUMNS parsed in {:0.2f}s\n",
+                          Timer::seconds(t1, t0));*/
                break;
             case RHS:
                nextsection = parseRhs(in, rows, lhs, rhs);

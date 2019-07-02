@@ -1,4 +1,5 @@
 #include "CPXSolver.h"
+#include "core/Common.h"
 #include <iostream>
 
 #ifdef CONCERT_CPLEX_FOUND
@@ -112,9 +113,9 @@ CPXSolver::solve()
 }
 
 std::unique_ptr<LPSolver<double>>
-CPXSolver::clone() const
+CPXSolver::makeCopy() const
 {
-   return  std::make_unique<CPXSolver>(*this);
+   return std::make_unique<CPXSolver>(*this);
 }
 
 LPResult
@@ -135,6 +136,19 @@ CPXSolver::solve(LPAlgorithm alg)
    }
 
    return solve();
+}
+
+void
+CPXSolver::branch(int column, double val, Direction direction)
+{
+   IloNumExpr rowExpr(env);
+   rowExpr += 1.0 * variables[column];
+
+   constexpr double inf = std::numeric_limits<double>::infinity();
+   if (direction == Direction::UP)
+      model.add(IloConstraint(val <= rowExpr <= inf));
+   else
+      model.add(IloConstraint(-inf <= rowExpr <= val));
 }
 
 CPXSolver::~CPXSolver()

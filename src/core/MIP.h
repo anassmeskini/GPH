@@ -1,10 +1,10 @@
 #ifndef LP_HPP
 #define LP_HPP
 
-#include <bitset>
+#include <string>
 #include <vector>
 
-#include "Common.h"
+#include "Bitset.h"
 #include "SparseMatrix.h"
 
 template<typename REAL>
@@ -64,7 +64,7 @@ class MIP
         constMatrix.indices.data() + constMatrix.rowStart[row];
       size_t size = constMatrix.rowStart[row + 1] - constMatrix.rowStart[row];
 
-      return {coefBegin, indBegin, size};
+      return { coefBegin, indBegin, size };
    }
 
    VectorView<REAL> getCol(size_t col) const
@@ -75,8 +75,12 @@ class MIP
         constMatrixT.indices.data() + constMatrixT.rowStart[col];
       size_t size = constMatrixT.rowStart[col + 1] - constMatrixT.rowStart[col];
 
-      return {coefBegin, indBegin, size};
+      return { coefBegin, indBegin, size };
    }
+
+   const std::vector<size_t>& getUpLocks() { return upLocks; }
+
+   const std::vector<size_t>& getDownLocks() { return downLocks; }
 
    private:
    friend class mpsreader;
@@ -102,6 +106,9 @@ class MIP
    SparseMatrix<REAL> constMatrixT;
 
    bitset integer;
+
+   std::vector<size_t> downLocks;
+   std::vector<size_t> upLocks;
 };
 
 #endif

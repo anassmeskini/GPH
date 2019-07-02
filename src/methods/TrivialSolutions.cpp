@@ -4,27 +4,29 @@
 #include "core/Propagation.h"
 #include "io/Message.h"
 
-#include <math.h>
-
 // TODO remove slacks
+// TODO reorder variables
 
 std::optional<std::vector<double>>
-TrivialSolutions::search(const ProblemView& problem)
+TrivialSolutions::search(const MIP<double>& problem,
+                         const std::vector<double>& lb,
+                         const std::vector<double>& ub,
+                         const LPResult&,
+                         const std::vector<double>&,
+                         const std::vector<size_t>&,
+                         const LPFactory&)
 {
-   size_t ncols = problem.getNCols();
    size_t nrows = problem.getNRows();
-
    const auto& lhs = problem.getLHS();
    const auto& rhs = problem.getRHS();
 
-   const auto& downLocks = problem.getDownLocks();
-   const auto& upLocks = problem.getUpLocks();
-
-   std::vector<Activity> activities = problem.getActivities();
-   std::vector<double> lb = problem.getLB();
-   std::vector<double> ub = problem.getUB();
+   // copies
+   std::vector<Activity> activities = computeActivities(problem);
 
    std::vector<double> solActivity(nrows, 0.0);
+
+   auto lbcopy = lb;
+   auto ubcopy = ub;
 
    // try solution = lb
    for (size_t row = 0; row < nrows; ++row)
@@ -39,26 +41,31 @@ TrivialSolutions::search(const ProblemView& problem)
          size_t col = rowindices[colid];
          double coef = rowcoefs[colid];
 
-         if (lb[col] != ub[col])
+         if (lbcopy[col] != ub[col])
          {
-            bool feasible = updateActivities<ChangedBound::UPPER>(
-              problem.getCol(col), ub[col], lb[col], activities, lhs, rhs);
+            bool feasible =
+              updateActivities<ChangedBound::UPPER>(problem.getCol(col),
+                                                    ubcopy[col],
+                                                    lbcopy[col],
+                                                    activities,
+                                                    lhs,
+                                                    rhs);
 
-            ub[col] = lb[col];
+            ubcopy[col] = lbcopy[col];
 
             if (!feasible)
             {
                Message::debug("unfeasible", row, nrows);
             }
 
-            if (!propagate(problem, lb, ub, activities, col))
+            if (!propagate(problem, lbcopy, ubcopy, activities, col))
             {
                Message::debug("propagation failed!", row, nrows);
                return {};
             }
          }
 
-         solActivity[row] += lb[col] * coef;
+         solActivity[row] += lbcopy[col] * coef;
       }
 
       if (Num::greater(solActivity[row], rhs[row]) ||
@@ -69,7 +76,13 @@ TrivialSolutions::search(const ProblemView& problem)
       }
    }
 
-   Message::print("done");
+   auto objective = problem.getObj();
+
+   double obj = 0.0;
+   for (size_t i = 0; i < objective.size(); ++i)
+      obj += objective[i] * lbcopy[i];
+
+   Message::print("done, obj: {}", obj);
 
    return {};
 }

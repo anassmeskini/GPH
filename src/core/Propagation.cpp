@@ -3,7 +3,6 @@
 #include "Numerics.h"
 #include "io/Message.h"
 
-
 template<>
 bool
 updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
@@ -52,12 +51,10 @@ updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
           (Num::less(activities[row].max, lhs[row]) &&
            !activities[row].ninfmax))
       {
-         Message::debug("Act update infeasiblity: row {} activities {} {}, sides {} {}",
-                        row,
-                        activities[row].min,
-                        activities[row].max,
+         /*Message::debug("Act update infeasiblity: row {} activities {} {},
+            sides {} {}", row, activities[row].min, activities[row].max,
                         lhs[row],
-                        rhs[row]);
+                        rhs[row]);*/
          return false;
       }
    }
@@ -113,12 +110,13 @@ updateActivities<ChangedBound::UPPER>(VectorView<double> colview,
           (Num::less(activities[row].max, lhs[row]) &&
            !activities[row].ninfmax))
       {
-         Message::debug("Act update infeasility: row {} activities {} {}, sides {} {}",
-                        row,
-                        activities[row].min,
-                        activities[row].max,
-                        lhs[row],
-                        rhs[row]);
+         /*Message::debug(
+           "Act update infeasility: row {} activities {} {}, sides {} {}",
+           row,
+           activities[row].min,
+           activities[row].max,
+           lhs[row],
+           rhs[row]);*/
          return false;
       }
    }
@@ -192,12 +190,13 @@ updateActivities(VectorView<double> colview,
           (Num::less(activities[row].max, lhs[row]) &&
            !activities[row].ninfmax))
       {
-         Message::debug("Act update infeasibility: row {} activities {} {}, sides {} {}",
-                        row,
-                        activities[row].min,
-                        activities[row].max,
-                        lhs[row],
-                        rhs[row]);
+         /*Message::debug(
+           "Act update infeasibility: row {} activities {} {}, sides {} {}",
+           row,
+           activities[row].min,
+           activities[row].max,
+           lhs[row],
+           rhs[row]);*/
          return false;
       }
    }
@@ -206,7 +205,7 @@ updateActivities(VectorView<double> colview,
 }
 
 static bool
-propagateRow(const ProblemView& problem,
+propagateRow(const MIP<double>& problem,
              size_t row,
              std::vector<Activity>& activities,
              std::vector<double>& lb,
@@ -220,7 +219,7 @@ propagateRow(const ProblemView& problem,
 
    auto& activity = activities[row];
 
-   const auto& integer = problem.integer();
+   const auto& integer = problem.getInteger();
 
    const auto& lhs = problem.getLHS();
    const auto& rhs = problem.getRHS();
@@ -297,13 +296,13 @@ propagateRow(const ProblemView& problem,
       if ((Num::greater(impliedlb, lb[col]) && implbfinite) &&
           (Num::less(impliedub, ub[col]) && impubfinite))
       {
-         Message::debug(
+         /*Message::debug(
            "Propagation changed Bds of col {} from [{}, {}] -> {{}, {}]",
            col,
            lb[col],
            ub[col],
            impliedlb,
-           impliedub);
+           impliedub);*/
          // update right and left
          if (!updateActivities(colview,
                                lb[col],
@@ -321,10 +320,10 @@ propagateRow(const ProblemView& problem,
       }
       else if (Num::greater(impliedlb, lb[col]) && implbfinite)
       {
-         Message::debug("Propagation changed LB of col {} from {} -> {}",
+         /*Message::debug("Propagation changed LB of col {} from {} -> {}",
                         col,
                         lb[col],
-                        impliedlb);
+                        impliedlb);*/
          // update left
          if (!updateActivities<ChangedBound::LOWER>(
                colview, lb[col], impliedlb, activities, lhs, rhs))
@@ -335,10 +334,10 @@ propagateRow(const ProblemView& problem,
       }
       else if (Num::less(impliedub, ub[col]) && impubfinite)
       {
-         Message::debug("Propagation changed UB of col {}: {} --> {}",
+         /*Message::debug("Propagation changed UB of col {}: {} --> {}",
                         col,
                         ub[col],
-                        impliedub);
+                        impliedub);*/
          // update right
          if (!updateActivities<ChangedBound::UPPER>(
                colview, ub[col], impliedub, activities, lhs, rhs))
@@ -355,7 +354,7 @@ propagateRow(const ProblemView& problem,
 // assumes that the lb and ub reftlect the fixing, and the activities are
 // up-to-date
 int
-propagate(const ProblemView& problem,
+propagate(const MIP<double>& problem,
           std::vector<double>& lb,
           std::vector<double>& ub,
           std::vector<Activity>& activities,
@@ -368,7 +367,7 @@ propagate(const ProblemView& problem,
 
    std::vector<size_t> changedCols;
    // is this a bug?
-   //changedCols.reserve(ncols);
+   // changedCols.reserve(ncols);
 
    changedCols.push_back(changedcol);
 

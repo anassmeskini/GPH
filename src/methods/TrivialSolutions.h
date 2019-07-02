@@ -7,8 +7,13 @@
 class TrivialSolutions : public HeuristicMethod
 {
    public:
-   virtual std::optional<std::vector<double>> search(
-     const ProblemView& problem) override;
+   virtual std::optional<std::vector<double>> search(const MIP<double>&,
+                                                     const std::vector<double>&,
+                                                     const std::vector<double>&,
+                                                     const LPResult&,
+                                                     const std::vector<double>&,
+                                                     const std::vector<size_t>&,
+                                                     const LPFactory&) override;
 
    virtual ~TrivialSolutions() = default;
 };

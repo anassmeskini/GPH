@@ -16,7 +16,9 @@ class SPXSolver : public LPSolver<double>
 
    virtual LPResult solve() override;
 
-   virtual std::unique_ptr<LPSolver<double>> clone() const override;
+   virtual std::unique_ptr<LPSolver<double>> makeCopy() const override;
+
+   virtual void branch(int column, double val, Direction direction) override;
 
    private:
    soplex::SoPlex mysoplex;
