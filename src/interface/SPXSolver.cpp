@@ -3,7 +3,7 @@
 
 #ifdef SOPLEX_FOUND
 
-SPXSolver::SPXSolver(const MIP<double>& mip)
+SPXSolver::SPXSolver(const MIP& mip)
   : ncols(mip.getNCols())
   , nrows(mip.getNRows())
 {
@@ -14,15 +14,13 @@ SPXSolver::SPXSolver(const MIP<double>& mip)
    const auto& obj = mip.getObj();
    const auto& lhs = mip.getLHS();
    const auto& rhs = mip.getRHS();
-   const auto& varNames = mip.getVarNames();
-   const auto& consNames = mip.getConsNames();
 
    mysoplex.setIntParam(SoPlex::OBJSENSE, SoPlex::OBJSENSE_MINIMIZE);
    DSVector dummycol(0);
 
    const double myinf = std::numeric_limits<double>::infinity();
 
-   for (size_t var = 0; var < mip.getNCols(); ++var)
+   for (int var = 0; var < mip.getNCols(); ++var)
    {
       double soLB = lb[var];
       double soUB = ub[var];
@@ -34,12 +32,12 @@ SPXSolver::SPXSolver(const MIP<double>& mip)
       mysoplex.addColReal(LPCol(obj[var], dummycol, soUB, soLB));
    }
 
-   for (size_t row = 0; row < mip.getNRows(); ++row)
+   for (int row = 0; row < mip.getNRows(); ++row)
    {
       auto rowview = mip.getRow(row);
 
       DSVector vector(rowview.size);
-      for (size_t id = 0; id < rowview.size; ++id)
+      for (int id = 0; id < rowview.size; ++id)
          vector.add(rowview.indices[id], rowview.coefs[id]);
 
       double soLHS = lhs[row];
@@ -81,10 +79,10 @@ SPXSolver::solve()
       mysoplex.getDualReal(dual);
 
       // TODO use memcpy
-      for (size_t i = 0; i < ncols; ++i)
+      for (int i = 0; i < ncols; ++i)
          result.primalSolution.push_back(prim[i]);
 
-      for (size_t i = 0; i < nrows; ++i)
+      for (int i = 0; i < nrows; ++i)
          result.dualSolution.push_back(dual[i]);
 
       result.obj = mysoplex.objValueReal();
@@ -95,7 +93,7 @@ SPXSolver::solve()
    return result;
 }
 
-std::unique_ptr<LPSolver<double>>
+std::unique_ptr<LPSolver>
 SPXSolver::makeCopy() const
 {
    return std::make_unique<SPXSolver>(*this);

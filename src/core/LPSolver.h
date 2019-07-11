@@ -15,7 +15,6 @@ struct LPResult
       INFEASIBLE,
       UNBOUNDED,
       OPTIMAL,
-      ILL_CONDITIONED,
       OTHER
    } status;
 
@@ -40,7 +39,6 @@ enum class Direction
    Down
 };
 
-template<typename REAL>
 class LPSolver
 {
    public:
@@ -48,28 +46,18 @@ class LPSolver
 
    virtual LPResult solve() = 0;
 
-   virtual LPResult solve(LPAlgorithm);
-
-   std::unique_ptr<LPSolver<REAL>> clone() const
+   std::unique_ptr<LPSolver> clone() const
    {
       std::lock_guard guard(copyLock);
       return makeCopy();
    }
 
-   virtual void branch(int column, REAL val, Direction direction) = 0;
+   virtual void branch(int column, double val, Direction direction) = 0;
 
-   virtual std::unique_ptr<LPSolver<REAL>> makeCopy() const = 0;
+   virtual std::unique_ptr<LPSolver> makeCopy() const = 0;
 
    private:
    mutable tbb::mutex copyLock;
 };
-
-template<typename REAL>
-LPResult LPSolver<REAL>::solve(LPAlgorithm)
-{
-   fmt::print("Info: specified LP algorithm was ignored");
-
-   return solve();
-}
 
 #endif

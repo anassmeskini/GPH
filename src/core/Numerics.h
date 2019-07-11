@@ -27,10 +27,10 @@ struct Num
 
    static constexpr double infinity();
 
+   static constexpr double infval = std::numeric_limits<double>::infinity();
+
    private:
    static constexpr double constol = 1e-6;
-
-   static constexpr double infval = std::numeric_limits<double>::infinity();
 };
 
 #endif

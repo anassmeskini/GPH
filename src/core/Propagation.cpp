@@ -5,24 +5,20 @@
 
 template<>
 bool
-updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
+updateActivities<ChangedBound::LOWER>(VectorView colview,
                                       double oldlb,
                                       double newlb,
                                       std::vector<Activity>& activities,
                                       const std::vector<double>& lhs,
                                       const std::vector<double>& rhs)
 {
-   const double* colcoefs = colview.coefs;
-   const size_t* colindices = colview.indices;
-   const size_t colsize = colview.size;
-
+   auto [colcoefs, colindices, colsize] = colview;
+   bool lbfinite = !Num::isInf(oldlb);
    assert(!Num::isInf(newlb));
 
-   bool lbfinite = !Num::isInf(oldlb);
-
-   for (size_t i = 0; i < colsize; ++i)
+   for (int i = 0; i < colsize; ++i)
    {
-      size_t row = colindices[i];
+      int row = colindices[i];
       const double coef = colcoefs[i];
 
       if (Num::greater(coef, 0.0))
@@ -64,7 +60,7 @@ updateActivities<ChangedBound::LOWER>(VectorView<double> colview,
 
 template<>
 bool
-updateActivities<ChangedBound::UPPER>(VectorView<double> colview,
+updateActivities<ChangedBound::UPPER>(VectorView colview,
                                       double oldub,
                                       double newub,
                                       std::vector<Activity>& activities,
@@ -72,15 +68,15 @@ updateActivities<ChangedBound::UPPER>(VectorView<double> colview,
                                       const std::vector<double>& rhs)
 {
    const double* colcoefs = colview.coefs;
-   const size_t* colindices = colview.indices;
-   const size_t colsize = colview.size;
+   const int* colindices = colview.indices;
+   const int colsize = colview.size;
 
    assert(!Num::isInf(newub));
    bool ubfinite = !Num::isInf(oldub);
 
-   for (size_t i = 0; i < colsize; ++i)
+   for (int i = 0; i < colsize; ++i)
    {
-      size_t row = colindices[i];
+      int row = colindices[i];
       const double coef = colcoefs[i];
 
       if (Num::greater(coef, 0.0))
@@ -125,7 +121,7 @@ updateActivities<ChangedBound::UPPER>(VectorView<double> colview,
 }
 
 bool
-updateActivities(VectorView<double> colview,
+updateActivities(VectorView colview,
                  double oldlb,
                  double newlb,
                  double oldub,
@@ -135,17 +131,17 @@ updateActivities(VectorView<double> colview,
                  const std::vector<double>& rhs)
 {
    const double* colcoefs = colview.coefs;
-   const size_t* colindices = colview.indices;
-   const size_t colsize = colview.size;
+   const int* colindices = colview.indices;
+   const int colsize = colview.size;
 
    assert(!Num::isMinusInf(newlb) && !Num::isInf(newub));
 
    bool lbfinite = !Num::isInf(oldlb);
    bool ubfinite = !Num::isInf(oldub);
 
-   for (size_t i = 0; i < colsize; ++i)
+   for (int i = 0; i < colsize; ++i)
    {
-      size_t row = colindices[i];
+      int row = colindices[i];
       const double coef = colcoefs[i];
 
       if (Num::greater(coef, 0.0))
@@ -205,17 +201,14 @@ updateActivities(VectorView<double> colview,
 }
 
 static bool
-propagateRow(const MIP<double>& problem,
-             size_t row,
+propagateRow(const MIP& problem,
+             int row,
              std::vector<Activity>& activities,
              std::vector<double>& lb,
              std::vector<double>& ub,
-             std::vector<size_t>& changedCols)
+             std::vector<int>& changedCols)
 {
-   auto rowview = problem.getRow(row);
-   const double* rowcoefs = rowview.coefs;
-   const size_t* rowindices = rowview.indices;
-   const size_t rowsize = rowview.size;
+   auto [rowcoefs, rowindices, rowsize] = problem.getRow(row);
 
    auto& activity = activities[row];
 
@@ -227,9 +220,9 @@ propagateRow(const MIP<double>& problem,
    double impliedlb;
    double impliedub;
 
-   for (size_t i = 0; i < rowsize; ++i)
+   for (int i = 0; i < rowsize; ++i)
    {
-      size_t col = rowindices[i];
+      int col = rowindices[i];
       double coef = rowcoefs[i];
 
       double maxPartialActivity = activity.max;
@@ -354,18 +347,17 @@ propagateRow(const MIP<double>& problem,
 // assumes that the lb and ub reftlect the fixing, and the activities are
 // up-to-date
 int
-propagate(const MIP<double>& problem,
+propagate(const MIP& problem,
           std::vector<double>& lb,
           std::vector<double>& ub,
           std::vector<Activity>& activities,
-          size_t changedcol)
+          int changedcol)
 {
    assert(lb[changedcol] == ub[changedcol]);
 
-   size_t nrows = problem.getNRows();
-   size_t ncols = problem.getNCols();
+   int ncols = problem.getNCols();
 
-   std::vector<size_t> changedCols;
+   std::vector<int> changedCols;
    // is this a bug?
    // changedCols.reserve(ncols);
 
@@ -373,22 +365,20 @@ propagate(const MIP<double>& problem,
 
    for (size_t i = 0; i < changedCols.size(); ++i)
    {
-      const size_t col = changedCols[i];
+      const int col = changedCols[i];
 
-      auto colview = problem.getCol(col);
-      const size_t* colindices = colview.indices;
-      const size_t colsize = colview.size;
+      auto [colcoefs, colindices, colsize] = problem.getCol(col);
 
-      for (size_t j = 0; j < colsize; ++j)
+      for (int j = 0; j < colsize; ++j)
       {
-         const size_t row = colindices[j];
+         const int row = colindices[j];
 
          // propagate row
          if (!propagateRow(problem, row, activities, lb, ub, changedCols))
             return 0;
       }
 
-      if (changedCols.size() >= ncols)
+      if (changedCols.size() >= static_cast<size_t>(ncols))
       {
          int newsize = static_cast<int>(changedCols.size()) - (i + 1);
          assert(newsize >= 0);

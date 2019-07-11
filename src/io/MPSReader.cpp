@@ -1,128 +1,256 @@
 #include "MPSReader.h"
+#include "Message.h"
 #include "core/Common.h"
 #include "core/Numerics.h"
 #include "core/Timer.h"
-#include "fmt/format.h"
 #include <cstring>
+#include <exception>
 
-std::string
-string(const std::string& line, std::pair<int, int> word)
+bool
+MPSWrapper::readLine() noexcept
 {
-   return std::string(line.cbegin() + word.first, line.cbegin() + word.second);
-}
-
-// TODO improve decompression time
-
-static Split
-split(const std::string& line)
-{
-   constexpr char space = ' ';
-   constexpr char tab = '\t';
-
-   Split split;
-
-   for (size_t id = 0; id < line.size(); ++id)
+   bool marker;
+   do
    {
-      if (line[id] == space || line[id] == tab)
-         continue;
+      marker = false;
 
-      split.words[split.size_].first = id;
+      field_1 = nullptr;
+      field_2 = nullptr;
+      field_3 = nullptr;
+      field_4 = nullptr;
+      field_5 = nullptr;
 
-      while (true)
+      ++linenb;
+
+      bool empty = true;
+      do
       {
-         if (split.size_ >= 5)
-            throw std::runtime_error("too many words");
+         if (!is.getline(buf, sizeof(buf)).good() && !is.eof())
+            return false;
 
-         ++id;
-         assert(id <= line.size());
+         // comment
+         if (buf[0] == '*')
+            continue;
 
-         if (id >= line.size() || line[id] == space || line[id] == tab)
+         // replace tabs with spaces
+         int len = int(strlen(buf));
+         for (int i = 0; i < len; i++)
          {
-            split.words[split.size_].second = id;
-            ++split.size_;
+            if (buf[i] == tab)
+               buf[i] = blank;
+            else if (buf[i] != blank)
+               empty = false;
+         }
+      } while (empty);
+
+      // new section
+      if (buf[0] != blank)
+      {
+         field_1 = std::strtok(buf, " ");
+         field_2 = std::strtok(nullptr, " ");
+         return true;
+      }
+
+      // not a comment, empty line or a new section
+      // if it's a marker change integer_section and
+      // move to the next line
+      // else get the tokens and return
+      do
+      {
+         field_1 = std::strtok(buf + 1, " ");
+         assert(field_1);
+
+         if (!(field_2 = std::strtok(nullptr, " ")))
+            break;
+
+         if (!std::strcmp(field_2, "'MARKER'"))
+            marker = true;
+
+         if (marker)
+         {
+            if (!(field_3 = std::strtok(nullptr, " ")))
+               return false;
+
+            if (!std::strcmp(field_3, "'INTORG'"))
+               integer_section = true;
+            else if (!std::strcmp(field_3, "'INTEND'"))
+               integer_section = false;
+            else
+               return false;
+
             break;
          }
+
+         if (!(field_3 = std::strtok(nullptr, " ")))
+            break;
+
+         if (!(field_4 = std::strtok(nullptr, " ")))
+            break;
+
+         field_5 = std::strtok(nullptr, " ");
+
+         break;
+      } while (false);
+   } while (marker);
+
+   return true;
+}
+
+// read the mps, fill a transposed constraint matrix
+// construct the sparse constraint matrix from the transposed
+MIP
+MPSReader::parse(MPSWrapper& mps)
+{
+   std::string name;
+
+   Rows rows;
+   Cols cols;
+
+   // transposed sparse matrix
+   std::vector<double> coefsT;
+   std::vector<int> idxT;
+   std::vector<int> rstatrtT;
+
+   std::vector<double> rhs;
+   std::vector<double> lhs;
+
+   std::vector<double> lbs;
+   std::vector<double> ubs;
+
+   std::vector<std::string> varNames;
+   std::vector<std::string> consNames;
+
+   std::vector<double> objective;
+   std::string objName;
+
+   dynamic_bitset<> integer;
+
+   std::vector<int> rowSize;
+
+   Timer::time_point t0;
+   Timer::time_point t1;
+
+   Section nextsection = NAME;
+   while (nextsection != FORMAT_ERROR && nextsection != END)
+   {
+      switch (nextsection)
+      {
+         case NAME:
+            Message::debug("section name");
+            nextsection = parseName(mps, name);
+            break;
+
+         case ROWS:
+            t0 = Timer::now();
+            nextsection = parseRows(mps, rows, objName);
+            t1 = Timer::now();
+            Message::debug("Section ROWS parsed in {:0.2f}s\n",
+                           Timer::seconds(t1, t0));
+            break;
+
+         case COLUMNS:
+            t0 = Timer::now();
+            nextsection = parseColumns(mps,
+                                       rows,
+                                       cols,
+                                       coefsT,
+                                       idxT,
+                                       rstatrtT,
+                                       objective,
+                                       objName,
+                                       integer,
+                                       rowSize,
+                                       varNames);
+            t1 = Timer::now();
+            Message::debug("Section COLUMNS parsed in {:0.2f}s\n",
+                           Timer::seconds(t1, t0));
+            break;
+
+         case RHS:
+            t0 = Timer::now();
+            nextsection = parseRhs(mps, rows, lhs, rhs);
+            t1 = Timer::now();
+            Message::debug("Section RHS parsed in {:0.2f}s\n",
+                           Timer::seconds(t1, t0));
+            break;
+
+         case BOUNDS:
+            t0 = Timer::now();
+            nextsection = parseBounds(mps, cols, lbs, ubs, integer);
+            t1 = Timer::now();
+            Message::debug("Section BOUNDS parsed in {:0.2f}s\n",
+                           Timer::seconds(t1, t0));
+            break;
+
+         case RANGES:
+            t0 = Timer::now();
+            nextsection = parseRanges(mps, rows, lhs, rhs);
+            t1 = Timer::now();
+            Message::debug("Section BOUNDS parsed in {:0.2f}s\n",
+                           Timer::seconds(t1, t0));
+            break;
+
+         case FORMAT_ERROR:
+         case END:
+            assert(0);
       }
    }
 
-   return split;
+   if (nextsection == FORMAT_ERROR)
+      throw std::runtime_error("unable to parse MPS file (error in line " +
+                               std::to_string(mps.getLineNb()) + ")");
+
+   return MIP(rows,
+              cols,
+              std::move(coefsT),
+              std::move(idxT),
+              std::move(rstatrtT),
+              std::move(rhs),
+              std::move(lhs),
+              std::move(lbs),
+              std::move(ubs),
+              std::move(objective),
+              std::move(integer),
+              rowSize,
+              std::move(varNames));
 }
 
-bool
-strcompare(const char* line,
-           std::pair<size_t, size_t> word,
-           const char* str,
-           size_t size)
+MPSReader::Section
+MPSReader::parseName(MPSWrapper& mps, std::string& name)
 {
-   if (word.second != word.first + size)
-      return false;
+   if (!mps.readLine() || std::strcmp(mps.field1(), "NAME"))
+      return FORMAT_ERROR;
 
-   return !std::memcmp(line + word.first, str, size * sizeof(char));
-}
+   name = std::string(mps.field2());
 
-mpsreader::Section
-mpsreader::parseName(boost::iostreams::filtering_istream& file,
-                     std::string& name)
-{
-   error_section = NAME;
+   if (!mps.readLine() || std::strcmp(mps.field1(), "ROWS"))
+      return FORMAT_ERROR;
 
-   std::string line;
-   while (std::getline(file, line) &&
-          (line.empty() || line[line.find_first_not_of(" ")] == '*'))
-   {
-   }
-
-   auto tokens = split(line);
-
-   if (tokens.size() != 2 ||
-       !strcompare(line.c_str(), tokens.words[0], "NAME", 4))
-      return FAIL;
-
-   name = string(line, tokens.words[1]);
-
-   while (std::getline(file, line) &&
-          (line.empty() || line[line.find_first_not_of(" ")] == '*'))
-   {
-   }
-
-   tokens = split(line);
-   if (tokens.size() > 1 ||
-       !strcompare(line.c_str(), tokens.words[0], "ROWS", 4))
-      return FAIL;
-
-   error_section = NONE;
    return ROWS;
 }
 
-mpsreader::Section
-mpsreader::parseRows(boost::iostreams::filtering_istream& file,
-                     Rows& rows,
-                     std::string& objName)
+MPSReader::Section
+MPSReader::parseRows(MPSWrapper& mps, Rows& rows, std::string& objname)
 {
-   error_section = ROWS;
-   std::string line;
-   Split tokens;
+   int rowcounter = 0;
+   ConsType type;
 
-   objName.clear();
-   size_t rowcounter = 0;
-   while (std::getline(file, line))
+   while (true)
    {
-      if (line.empty() || line[line.find_first_not_of(" ")] == '*')
-         continue;
+      if (!mps.readLine())
+         return FORMAT_ERROR;
 
-      tokens = split(line);
-      if (tokens.size() == 1)
+      if (!mps.field2())
          break;
-      if (tokens.size() != 2 || tokens.size(0) != 1)
-         return FAIL;
 
-      ConsType type;
-      char typechar = line[tokens.words[0].first];
-      switch (typechar)
+      if (std::strlen(mps.field1()) > 1)
+         return FORMAT_ERROR;
+
+      switch (mps.field1()[0])
       {
          case 'N':
             type = OBJECTIVE;
-            objName = string(line, tokens.words[1]);
+            objname = std::string(mps.field2());
             break;
          case 'L':
             type = LESS;
@@ -134,187 +262,204 @@ mpsreader::parseRows(boost::iostreams::filtering_istream& file,
             type = EQUAL;
             break;
          default:
-            return FAIL;
+            return FORMAT_ERROR;
       }
 
       if (type != OBJECTIVE)
       {
-         auto pair = rows.emplace(string(line, tokens.words[1]),
-                                  std::make_pair(type, rowcounter));
+         auto pair =
+           rows.emplace(mps.field2(), std::make_pair(type, rowcounter));
          ++rowcounter;
 
          // duplicate rows
          if (!pair.second)
-            return FAIL;
+            return FORMAT_ERROR;
       }
    }
 
-   assert(tokens.size() == 1);
-   if (!strcompare(line.c_str(), tokens.words[0], "COLUMNS", 7))
-      return FAIL;
-
-   error_section = NONE;
+   if (std::strcmp(mps.field1(), "COLUMNS"))
+      return FORMAT_ERROR;
    return COLUMNS;
 }
 
-mpsreader::Section
-mpsreader::parseColumns(boost::iostreams::filtering_istream& file,
+MPSReader::Section
+MPSReader::parseColumns(MPSWrapper& mps,
                         const Rows& rows,
                         Cols& cols,
                         std::vector<double>& coefs,
-                        std::vector<size_t>& idxT,
-                        std::vector<size_t>& rstart,
+                        std::vector<int>& idxT,
+                        std::vector<int>& rstart,
                         std::vector<double>& objective,
-                        const std::string& objName,
-                        bitset& integer,
-                        std::vector<size_t>& rowSize,
+                        const std::string& objname,
+                        dynamic_bitset<>& integer,
+                        std::vector<int>& rowSize,
                         std::vector<std::string>& varNames)
 {
-   error_section = COLUMNS;
-   std::string line;
-   Split tokens;
+   int colid = -1;
+   std::string row_name;
+   objective.clear();
 
-   int colId = -1;
-   std::string prevCol("");
+   rowSize = std::vector<int>(rows.size(), 0);
 
-   bool integerSection = false;
-
-   rowSize = std::vector<size_t>(rows.size(), 0);
-
-   while (std::getline(file, line))
+   while (true)
    {
-      assert(coefs.size() == idxT.size());
+      if (!mps.readLine())
+         return FORMAT_ERROR;
 
-      if (line.empty() || line[line.find_first_not_of(" ")] == '*')
-         continue;
-
-      tokens = split(line);
-      if (tokens.size() == 1)
+      if (!mps.field2())
          break;
 
-      // check if it's the start or end of an integer section
-      if (tokens.size() == 3)
+      if (!mps.field3())
+         return FORMAT_ERROR;
+
+      if (varNames.empty() ||
+          std::strcmp(mps.field1(), varNames.back().c_str()))
       {
-         if (strcompare(line.c_str(), tokens.words[1], "'MARKER'", 8))
-         {
-            if (strcompare(line.c_str(), tokens.words[2], "'INTORG'", 8))
-            {
-               if (integerSection)
-                  return FAIL;
-               integerSection = true;
-               continue;
-            }
-            else if (strcompare(line.c_str(), tokens.words[2], "'INTEND'", 8))
-            {
-               if (!integerSection)
-                  return FAIL;
-               integerSection = false;
-               continue;
-            }
-            else
-               return FAIL;
-         }
-      }
-      else if (!(tokens.size() % 2))
-         return FAIL;
+         ++colid;
+         std::string current_col(mps.field1());
 
-      auto curCol = string(line, tokens.words[0]);
-
-      // if it's a new column
-      if (curCol != prevCol)
-      {
-         ++colId;
-
-         auto insertion = cols.insert(std::make_pair(curCol, colId));
+         auto insertion = cols.emplace(current_col, colid);
          if (!insertion.second)
-            return FAIL;
+            return FORMAT_ERROR;
 
          // the last row of the transposed matrix ends here
          rstart.push_back(coefs.size());
-         integer.push_back(integerSection);
+         integer.push_back(mps.isIntSection());
 
-         varNames.push_back(curCol);
-         assert(varNames.size() == colId + 1);
+         varNames.push_back(std::move(current_col));
 
-         prevCol = std::move(curCol);
+         assert(varNames.size() == static_cast<size_t>(colid + 1));
+      }
+      assert(coefs.size() == idxT.size());
+
+      double coef;
+      try
+      {
+         coef = std::stod(mps.field3());
+      }
+      catch (const std::exception& ex)
+      {
+         return FORMAT_ERROR;
       }
 
-      for (size_t i = 1; i < tokens.size(); i += 2)
+      if (!std::strcmp(objname.c_str(), mps.field2()))
       {
-         auto rowname = string(line, tokens.words[i]);
-         double coef = std::stod(string(line, tokens.words[i + 1]));
+         int beforesize = objective.size();
+         objective.resize(colid + 1);
 
-         // if the entry is for the objective
-         if (rowname == objName)
+         assert(colid >= beforesize);
+         assert(objective.size() == static_cast<size_t>(colid) + 1);
+
+         std::memset(objective.data() + beforesize,
+                     0,
+                     sizeof(double) * (colid - beforesize));
+
+         objective[colid] = coef;
+      }
+      else
+      {
+         auto iter = rows.find(mps.field2());
+         // row not declared in the ROWS section
+         if (iter == rows.end())
          {
-            if (objective.size() < static_cast<size_t>(colId))
-            {
-               int objsize = objective.size();
-               objective.resize(colId + 1);
-               std::memset(objective.data() + objsize,
-                           0.0,
-                           (colId - objsize) * sizeof(double));
-            }
-
-            objective.resize(colId + 1);
-            objective[colId] = coef;
-            assert(objective.size() == static_cast<size_t>(colId) + 1);
+            return FORMAT_ERROR;
          }
-         else
-         {
-            auto iter = rows.find(rowname);
-            // row not declared in the ROWS section
-            if (iter == rows.end())
-               return FAIL;
 
-            auto rowId = iter->second.second;
+         auto rowid = iter->second.second;
+
+         if (coef != 0.0)
+         {
             coefs.push_back(coef);
-            idxT.push_back(rowId);
-            ++rowSize[rowId];
+            idxT.push_back(rowid);
+            ++rowSize[rowid];
          }
+
+         assert(coefs.size() == idxT.size());
+      }
+
+      if (!mps.field4())
+         continue;
+      if (!mps.field5())
+         return FORMAT_ERROR;
+
+      try
+      {
+         coef = std::stod(mps.field5());
+      }
+      catch (const std::exception& ex)
+      {
+         return FORMAT_ERROR;
+      }
+
+      if (!std::strcmp(objname.c_str(), mps.field4()))
+      {
+         int beforesize = objective.size();
+         objective.resize(colid + 1);
+
+         assert(colid >= beforesize);
+         assert(objective.size() == static_cast<size_t>(colid) + 1);
+
+         std::memset(objective.data() + beforesize,
+                     0,
+                     sizeof(double) * (colid - beforesize));
+
+         objective[colid] = coef;
+      }
+      else
+      {
+         auto iter = rows.find(mps.field4());
+         // row not declared in the ROWS section
+         if (iter == rows.end())
+            return FORMAT_ERROR;
+
+         auto rowid = iter->second.second;
+         if (coef != 0.0)
+         {
+            coefs.push_back(coef);
+            idxT.push_back(rowid);
+            ++rowSize[rowid];
+         }
+
+         assert(coefs.size() == idxT.size());
       }
    }
-
-   while (objective.size() < static_cast<size_t>(colId) + 1)
-      objective.push_back(0.0);
 
    // end the last row
    rstart.push_back(coefs.size());
 
-   assert(tokens.size() == 1);
-   if (!strcompare(line.c_str(), tokens.words[0], "RHS", 3))
-      return FAIL;
+   int ncols = static_cast<int>(colid + 1);
+   int beforesize = objective.size();
+   objective.resize(ncols);
 
-   assert(objective.size() == cols.size());
+   assert(ncols >= beforesize);
+   std::memset(
+     objective.data() + beforesize, 0, sizeof(double) * (ncols - beforesize));
 
-   error_section = NONE;
-   return RHS;
+   if (!std::strcmp(mps.field1(), "RHS"))
+      return RHS;
+
+   return FORMAT_ERROR;
 }
 
-mpsreader::Section
-mpsreader::parseRhs(boost::iostreams::filtering_istream& file,
+MPSReader::Section
+MPSReader::parseRhs(MPSWrapper& mps,
                     const Rows& rows,
                     std::vector<double>& lhs,
                     std::vector<double>& rhs)
 {
-   error_section = RHS;
-   std::string line;
-   Split tokens;
-
-   std::string prevCol("");
-   std::set<std::string> colset;
-
    const double inf = std::numeric_limits<double>::infinity();
 
-   assert(rows.size() > 1);
-   size_t nrows = rows.size();
+   int nrows = rows.size();
    lhs = std::vector<double>(nrows);
    rhs = std::vector<double>(nrows);
 
+   // set default bounds
    for (auto row : rows)
    {
-      size_t id = row.second.second;
+      int id = row.second.second;
       ConsType type = row.second.first;
+
+      assert(id < static_cast<int>(lhs.size()));
       switch (type)
       {
          case LESS:
@@ -334,462 +479,250 @@ mpsreader::parseRhs(boost::iostreams::filtering_istream& file,
       }
    }
 
-   // set default bounds
-   for (auto row : rows)
+   do
    {
-      auto constype = row.second.first;
-      auto id = row.second.second;
+      if (!mps.readLine())
+         return FORMAT_ERROR;
 
-      switch (constype)
+      if (!mps.field2())
+         break;
+      if (!mps.field3())
+         return FORMAT_ERROR;
+
+      auto iter = rows.find(mps.field2());
+      if (iter == rows.end())
+         return FORMAT_ERROR;
+
+      int rowid = iter->second.second;
+
+      double side;
+      try
+      {
+         side = std::stod(mps.field3());
+      }
+      catch (const std::exception& ex)
+      {
+         return FORMAT_ERROR;
+      }
+
+      switch (iter->second.first)
       {
          case LESS:
-            lhs[id] = -inf;
-            rhs[id] = 0.0;
+            lhs[rowid] = -inf;
+            rhs[rowid] = side;
             break;
          case GREATER:
-            lhs[id] = 0.0;
-            rhs[id] = inf;
+            lhs[rowid] = side;
+            rhs[rowid] = inf;
             break;
          case EQUAL:
-            lhs[id] = 0.0;
-            rhs[id] = 0.0;
+            lhs[rowid] = side;
+            rhs[rowid] = side;
             break;
          case OBJECTIVE:
+            assert(0);
             break;
       }
-   }
 
-   while (std::getline(file, line))
-   {
-      if (line.empty() || line[line.find_first_not_of(" ")] == '*')
+      if (!mps.field4())
          continue;
+      if (!mps.field5())
+         return FORMAT_ERROR;
 
-      tokens = split(line);
-      if (tokens.size() == 1)
-         break;
-      if (!(tokens.size() % 2))
-         return FAIL;
+      iter = rows.find(mps.field4());
+      if (iter == rows.end())
+         return FORMAT_ERROR;
 
-      for (size_t i = 1; i < tokens.size(); i += 2)
+      rowid = iter->second.second;
+
+      try
       {
-         auto rowname = string(line, tokens.words[i]);
-         double side = std::stof(string(line, tokens.words[i + 1]));
-
-         auto iter = rows.find(rowname);
-         if (iter == rows.end())
-            return FAIL;
-
-         size_t rowid = iter->second.second;
-         switch (iter->second.first)
-         {
-            case LESS:
-               lhs[rowid] = -std::numeric_limits<double>::infinity();
-               rhs[rowid] = side;
-               break;
-            case GREATER:
-               lhs[rowid] = side;
-               rhs[rowid] = std::numeric_limits<double>::infinity();
-               break;
-            case EQUAL:
-               lhs[rowid] = side;
-               rhs[rowid] = side;
-               break;
-            case OBJECTIVE:
-               assert(0);
-               break;
-         }
+         side = std::stod(mps.field5());
       }
-   }
+      catch (const std::exception& ex)
+      {
+         return FORMAT_ERROR;
+      }
 
-   assert(tokens.size() == 1);
-   if (!strcompare(line.c_str(), tokens.words[0], "BOUNDS", 6))
-      return FAIL;
+      switch (iter->second.first)
+      {
+         case LESS:
+            lhs[rowid] = -inf;
+            rhs[rowid] = side;
+            break;
+         case GREATER:
+            lhs[rowid] = side;
+            rhs[rowid] = inf;
+            break;
+         case EQUAL:
+            lhs[rowid] = side;
+            rhs[rowid] = side;
+            break;
+         case OBJECTIVE:
+            assert(0);
+            break;
+      }
 
-   error_section = NONE;
-   return BOUNDS;
+   } while (true);
+
+   if (!std::strcmp(mps.field1(), "BOUNDS"))
+      return BOUNDS;
+   if (!std::strcmp(mps.field1(), "RANGES"))
+      return RANGES;
+
+   return FORMAT_ERROR;
 }
 
-mpsreader::Section
-mpsreader::parseBounds(boost::iostreams::filtering_istream& file,
+MPSReader::Section
+MPSReader::parseBounds(MPSWrapper& mps,
                        const Cols& cols,
                        std::vector<double>& lbs,
                        std::vector<double>& ubs,
-                       bitset& integer)
+                       dynamic_bitset<>& integer)
 {
-   error_section = BOUNDS;
-   std::string line;
-   Split tokens;
-
    lbs = std::vector<double>(cols.size(), 0);
    ubs =
      std::vector<double>(cols.size(), std::numeric_limits<double>::infinity());
 
-   bitset lb_changed(cols.size(), false);
+   dynamic_bitset<> lb_changed(cols.size(), false);
 
    // TODO
    constexpr double inf = std::numeric_limits<double>::infinity();
 
-   while (std::getline(file, line))
+   do
    {
-      if (line.empty() || line[line.find_first_not_of(" ")] == '*')
-         continue;
-
-      tokens = split(line);
-      if (tokens.size() == 1)
+      if (!mps.readLine())
+         return FORMAT_ERROR;
+      if (!mps.field2())
          break;
-      if (tokens.size() < 3)
-         return FAIL;
+      if (!mps.field3())
+         return FORMAT_ERROR;
 
-      auto colname = string(line, tokens.words[2]);
-      auto iter = cols.find(colname);
+      auto iter = cols.find(mps.field3());
       if (iter == cols.end())
-         return FAIL;
-      size_t colid = iter->second;
-
-      if (tokens.size() == 4)
+         return FORMAT_ERROR;
+      int colid = iter->second;
+      if (mps.field4())
       {
-         double bound = std::stof(string(line, tokens.words[3]));
+         // TODO catch exceptions
+         double bound;
+         try
+         {
+            bound = std::stod(mps.field4());
+         }
+         catch (const std::exception& ex)
+         {
+            return FORMAT_ERROR;
+         }
 
-         if (strcompare(line.c_str(), tokens.words[0], "UP", 2))
+         if (!std::strcmp(mps.field1(), "UP"))
          {
             ubs[colid] = bound;
             if (bound < 0.0 && !lb_changed[colid])
                lbs[colid] = -inf;
          }
-         else if (strcompare(line.c_str(), tokens.words[0], "LO", 2))
+         else if (!std::strcmp(mps.field1(), "LO"))
          {
             lbs[colid] = bound;
             lb_changed[colid] = true;
          }
-         else if (strcompare(line.c_str(), tokens.words[0], "FX", 2))
+         else if (!std::strcmp(mps.field1(), "FX"))
          {
             lbs[colid] = bound;
             ubs[colid] = bound;
          }
-         else if (strcompare(line.c_str(), tokens.words[0], "MI", 2))
-         {
+         else if (!std::strcmp(mps.field1(), "MI"))
             lbs[colid] = -inf;
-         }
-         else if (strcompare(line.c_str(), tokens.words[0], "PI", 2))
-         {
+         else if (!std::strcmp(mps.field1(), "PL"))
             ubs[colid] = inf;
-         }
          else
-            return FAIL;
-      }
-      else if (tokens.size() == 3)
-      {
-         if (strcompare(line.c_str(), tokens.words[0], "FR", 2))
-         {
-            lbs[colid] = -inf;
-            ubs[colid] = inf;
-         }
-         else if (strcompare(line.c_str(), tokens.words[0], "BV", 2))
-         {
-            integer[colid] = true;
-            lbs[colid] = 0.0;
-            ubs[colid] = 1.0;
-         }
-         else
-            return FAIL;
+            return FORMAT_ERROR;
       }
       else
-         return FAIL;
-   }
+      {
+         if (!std::strcmp(mps.field1(), "FX"))
+         {
+            lbs[colid] = -inf;
+            ubs[colid] = inf;
+         }
+         else if (!std::strcmp(mps.field1(), "BV"))
+         {
+            lbs[colid] = 0.0;
+            ubs[colid] = 1.0;
+            integer[colid] = true;
+         }
+      }
 
-   assert(tokens.size() == 1);
-   if (!strcompare(line.c_str(), tokens.words[0], "ENDATA", 6))
-      return FAIL;
+   } while (true);
 
-   error_section = NONE;
+   if (std::strcmp(mps.field1(), "ENDATA"))
+      return FORMAT_ERROR;
+
    return END;
 }
 
-// TODO this should be in the MIP constructor
-MIP<double>
-mpsreader::makeMip(const Rows& rows,
-                   const Cols& cols,
-                   std::vector<double>&& coefsT,
-                   std::vector<size_t>&& idxT,
-                   std::vector<size_t>&& rstartT,
-                   std::vector<double>&& rhs,
-                   std::vector<double>&& lhs,
-                   std::vector<double>&& lbs,
-                   std::vector<double>&& ubs,
-                   std::vector<double>&& objective,
-                   bitset&& integer,
-                   const std::vector<size_t>& rowSize,
-                   std::vector<std::string>&& varNames)
+MPSReader::Section
+MPSReader::parseRanges(MPSWrapper& mps,
+                       const Rows& rows,
+                       std::vector<double>& lhs,
+                       std::vector<double>& rhs)
 {
-   assert(coefsT.size() == idxT.size());
+   std::string rangeVectorName;
 
-   MIP<double> mip;
-
-   size_t ncols = cols.size();
-   size_t nrows = rows.size();
-
-   // fill the column major matrix
-   mip.constMatrixT.ncols = nrows;
-   mip.constMatrixT.nrows = ncols;
-   mip.constMatrixT.coefficients = coefsT;
-   mip.constMatrixT.indices = idxT;
-   mip.constMatrixT.rowStart = rstartT;
-
-   mip.constMatrix = transpose(mip.constMatrixT, rowSize);
-
-   // fill the rest
-   mip.lhs = lhs;
-   mip.rhs = rhs;
-
-   mip.lb = lbs;
-   mip.ub = ubs;
-
-   mip.objective = objective;
-
-   mip.integer = integer;
-
-   mip.varNames = varNames;
-
-   using RowInfo = std::pair<std::string, size_t>;
-   std::vector<RowInfo> rowinfo;
-   rowinfo.reserve(rows.size());
-
-   for (auto& element : rows)
-      rowinfo.emplace_back(element.first, element.second.second);
-
-   std::sort(std::begin(rowinfo),
-             std::end(rowinfo),
-             [](const RowInfo& lhs, const RowInfo& rhs) {
-                return lhs.second < rhs.second;
-             });
-
-   mip.consNames.reserve(rowinfo.size());
-
-   for (auto& element : rowinfo)
-      mip.consNames.push_back(std::move(element.first));
-
-   mip.downLocks.resize(ncols);
-   mip.upLocks.resize(ncols);
-
-   // TODO this needs to be cleaned up
-   for (size_t row = 0; row < nrows; ++row)
+   do
    {
-      auto rowview = mip.getRow(row);
-      size_t rowsize = rowview.size;
-      const double* coefs = rowview.coefs;
-      const size_t* indices = rowview.indices;
-      bool lhsfinite = !Num::isMinusInf(lhs[row]);
-      bool rhsfinite = !Num::isInf(rhs[row]);
+      if (!mps.readLine())
+         return FORMAT_ERROR;
+      if (!mps.field2())
+         break;
+      if (!mps.field3())
+         return FORMAT_ERROR;
+      if (rangeVectorName.empty())
+         rangeVectorName = std::string(mps.field1());
+      else if (std::strcmp(rangeVectorName.c_str(), mps.field1()))
+         // TODO warning
+         continue;
 
-      for (size_t id = 0; id < rowsize; ++id)
+      auto iter = rows.find(mps.field2());
+
+      if (iter == rows.end())
+         return FORMAT_ERROR;
+
+      ConsType type = iter->second.first;
+      int rowid = iter->second.second;
+      double range;
+      try
       {
-         size_t col = indices[id];
-         double coef = coefs[id];
-         assert(coef != 0.0);
-
-         if (lhsfinite)
-            mip.downLocks[col]++;
-         if (rhsfinite)
-            mip.upLocks[col]++;
+         range = std::stod(mps.field3());
       }
-   }
-
-   return mip;
-}
-
-// read the mps, fill a transposed constraint matrix
-// construct the sparse constraint matrix from the transposed
-MIP<double>
-mpsreader::parse(const std::string& filename)
-{
-   std::ifstream file(filename);
-   boost::iostreams::filtering_istream in;
-
-   if (!file.is_open())
-      throw std::runtime_error("unable to open file: " + filename);
-
-   if (boost::algorithm::ends_with(filename, ".gz"))
-      in.push(boost::iostreams::gzip_decompressor());
-   else if (boost::algorithm::ends_with(filename, ".bz2"))
-      in.push(boost::iostreams::bzip2_decompressor());
-
-   in.push(file);
-
-   std::string name;
-
-   Rows rows;
-   Cols cols;
-
-   // transposed sparse matrix
-   std::vector<double> coefsT;
-   std::vector<size_t> idxT;
-   std::vector<size_t> rstatrtT;
-
-   std::vector<double> rhs;
-   std::vector<double> lhs;
-
-   std::vector<double> lbs;
-   std::vector<double> ubs;
-
-   std::vector<std::string> varNames;
-   std::vector<std::string> consNames;
-
-   std::vector<double> objective;
-   std::string objName;
-
-   bitset integer;
-
-   std::vector<size_t> rowSize;
-
-   Section nextsection = NAME;
-
-   Timer::time_point t0;
-   Timer::time_point t1;
-
-   try
-   {
-      while (nextsection != FAIL && nextsection != END)
+      catch (const std::exception& ex)
       {
-         switch (nextsection)
-         {
-            case NAME:
-               nextsection = parseName(in, name);
-               break;
-            case ROWS:
-               nextsection = parseRows(in, rows, objName);
-               break;
-            case COLUMNS:
-               t0 = Timer::now();
-               nextsection = parseColumns(in,
-                                          rows,
-                                          cols,
-                                          coefsT,
-                                          idxT,
-                                          rstatrtT,
-                                          objective,
-                                          objName,
-                                          integer,
-                                          rowSize,
-                                          varNames);
-               t1 = Timer::now();
-               /*fmt::print("Section COLUMNS parsed in {:0.2f}s\n",
-                          Timer::seconds(t1, t0));*/
-               break;
-            case RHS:
-               nextsection = parseRhs(in, rows, lhs, rhs);
-               break;
-            case BOUNDS:
-               nextsection = parseBounds(in, cols, lbs, ubs, integer);
-               break;
-            case FAIL:
-            case END:
-            case NONE:
-               assert(0);
-         }
+         return FORMAT_ERROR;
       }
-   }
-   catch (const std::exception& exp)
-   {
-      throw std::runtime_error("unable to parse file: " + filename + "\n" +
-                               getErrorStr());
-   }
 
-   if (nextsection == FAIL)
-      throw std::runtime_error("unable to parse file: " + filename + "\n" +
-                               getErrorStr());
-
-   return makeMip(rows,
-                  cols,
-                  std::move(coefsT),
-                  std::move(idxT),
-                  std::move(rstatrtT),
-                  std::move(rhs),
-                  std::move(lhs),
-                  std::move(lbs),
-                  std::move(ubs),
-                  std::move(objective),
-                  std::move(integer),
-                  rowSize,
-                  std::move(varNames));
-}
-
-std::string
-mpsreader::getErrorStr()
-{
-   std::string errorstr = "Failed to parse mps file, error in section: ";
-   switch (error_section)
-   {
-      case NAME:
-         errorstr += "NAME";
-         break;
-      case ROWS:
-         errorstr += "ROWS";
-         break;
-      case COLUMNS:
-         errorstr += "COLUMNS";
-         break;
-      case RHS:
-         errorstr += "RHS";
-         break;
-      case BOUNDS:
-         errorstr += "BOUNDS";
-         break;
-      default:
-         assert(0);
-   }
-
-   errorstr += "\n";
-
-   return errorstr;
-}
-
-SparseMatrix<double>
-mpsreader::transpose(const SparseMatrix<double>& matrix,
-                     const std::vector<size_t>& rowSize)
-{
-   size_t nnz = matrix.coefficients.size();
-   size_t ncols = matrix.nrows;
-   size_t nrows = matrix.ncols;
-
-   assert(std::accumulate(rowSize.begin(), rowSize.end(), 0) == nnz);
-
-   SparseMatrix<double> transposed;
-   transposed.nrows = nrows;
-   transposed.ncols = ncols;
-   transposed.coefficients.resize(nnz);
-   transposed.indices.resize(nnz);
-
-   auto& rowStart = transposed.rowStart;
-   rowStart.reserve(nrows + 1);
-   rowStart.push_back(0);
-
-   std::vector<size_t> offset(nrows, 0);
-
-   for (size_t i = 0; i < nrows; ++i)
-      rowStart.push_back(rowSize[i] + rowStart[i]);
-
-   for (size_t col = 0; col < ncols; ++col)
-   {
-      for (size_t rowid = matrix.rowStart[col];
-           rowid < matrix.rowStart[col + 1];
-           ++rowid)
+      switch (type)
       {
-         size_t row = matrix.indices[rowid];
-         double coef = matrix.coefficients[rowid];
-
-         size_t rowstart = rowStart[row];
-         transposed.coefficients[rowstart + offset[row]] = coef;
-         transposed.indices[rowstart + offset[row]] = col;
-         ++offset[row];
-         assert(offset[row] <= rowSize[row]);
+         case GREATER:
+            rhs[rowid] = lhs[rowid] + range;
+            break;
+         case LESS:
+            lhs[rowid] = rhs[rowid] - range;
+            break;
+         case EQUAL:
+            if (range > 0.0)
+               rhs[rowid] = lhs[rowid] + range;
+            else
+               lhs[rowid] = rhs[rowid] + range;
+            break;
+         default:
+            assert(0);
+            break;
       }
-   }
 
-   assert(std::all_of(transposed.coefficients.begin(),
-                      transposed.coefficients.end(),
-                      [](double coef) { return coef != 0.0; }));
+   } while (true);
 
-   return transposed;
+   if (!std::strcmp(mps.field1(), "BOUNDS"))
+      return BOUNDS;
+
+   return FORMAT_ERROR;
 }
-
-mpsreader::Section mpsreader::error_section = mpsreader::NONE;

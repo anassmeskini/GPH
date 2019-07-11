@@ -36,15 +36,21 @@ struct Message
       fmt::print("\n");
    }
 
+#ifndef NDEBUG
    template<typename... Args>
    static void debug(std::string_view str, Args... args)
    {
-#ifndef NDEBUG
       fmt::print("[Debug]: ");
       fmt::print(str, std::forward<Args>(args)...);
       fmt::print("\n");
-#endif
    }
+#else
+   // to prevent compiler warnings in release mode
+   template<typename... Args>
+   static void debug(std::string_view, Args...)
+   {
+   }
+#endif
 };
 
 #endif

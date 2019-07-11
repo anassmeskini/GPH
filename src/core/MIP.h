@@ -1,114 +1,158 @@
 #ifndef LP_HPP
 #define LP_HPP
 
+#include "SparseMatrix.h"
+#include "dynamic_bitset/dynamic_bitset.hpp"
+#include "ska/Hash.hpp"
+
 #include <string>
 #include <vector>
 
-#include "Bitset.h"
-#include "SparseMatrix.h"
+enum ConsType
+{
+   LESS,
+   GREATER,
+   EQUAL,
+   OBJECTIVE,
+};
 
-template<typename REAL>
+// name -> <contraint type, row id>
+using Rows = HashMap<std::string, std::pair<ConsType, int>>;
+
+// name -> column id
+using Cols = HashMap<std::string, int>;
+
+struct VectorView
+{
+   VectorView(const double* _array, const int* _indices, int _size)
+     : coefs(_array)
+     , indices(_indices)
+     , size(_size)
+   {
+   }
+
+   VectorView(const VectorView&) = default;
+
+   const double* coefs;
+   const int* indices;
+   int size;
+};
+
+struct Statistics
+{
+   int ncols = -1;
+   int nrows = -1;
+
+   int nbin = 0;
+   int nint = 0;
+   int ncont = 0;
+
+   int nequality = 0;
+   int ninequality = 0;
+
+   int avgRowSupport = 0;
+   int avgColSupport = 0;
+   int maxRowSupport = 0;
+   int maxColSupport = 0;
+   int minRowSupport = std::numeric_limits<int>::max();
+   int minColSupport = std::numeric_limits<int>::max();
+
+   int maxLocks = 0;
+   int minLocks = std::numeric_limits<int>::max();
+
+   int nnzmat = 0;
+   int nnzobj = 0;
+};
+
+void printStats(Statistics);
+
 class MIP
 {
    public:
-   MIP(){};
+   MIP() = default;
 
-   MIP(MIP<REAL>&&) = default;
+   MIP(const Rows& rows,
+       const Cols& cols,
+       std::vector<double>&& coefsT,
+       std::vector<int>&& idxT,
+       std::vector<int>&& rstartT,
+       std::vector<double>&& rhs,
+       std::vector<double>&& lhs,
+       std::vector<double>&& lbs,
+       std::vector<double>&& ubs,
+       std::vector<double>&& obj,
+       dynamic_bitset<>&& integer,
+       std::vector<int>& rowSize,
+       std::vector<std::string>&& colNames);
 
-   MIP<REAL>& operator=(MIP<REAL>&& other)
-   {
-      objective = std::move(other.objective);
+   MIP(MIP&&) = default;
 
-      lhs = std::move(other.lhs);
-      rhs = std::move(other.rhs);
+   MIP& operator=(MIP&&);
 
-      ub = std::move(other.ub);
-      lb = std::move(other.lb);
+   int getNCols() const { return constMatrixT.nrows; }
 
-      varNames = std::move(other.varNames);
-      consNames = std::move(other.consNames);
+   int getNRows() const { return constMatrix.nrows; }
 
-      constMatrix = std::move(other.constMatrix);
-      constMatrixT = std::move(other.constMatrixT);
+   const std::vector<double>& getObj() const { return objective; }
 
-      integer = std::move(other.integer);
+   const std::vector<double>& getLB() const { return lb; }
 
-      return *this;
-   }
+   const std::vector<double>& getUB() const { return ub; }
 
-   size_t getNCols() const { return constMatrixT.nrows; }
+   const std::vector<double>& getLHS() const { return lhs; }
 
-   size_t getNRows() const { return constMatrix.nrows; }
+   const std::vector<double>& getRHS() const { return rhs; }
 
-   const std::vector<REAL>& getObj() const { return objective; }
-
-   const std::vector<REAL>& getLB() const { return lb; }
-
-   const std::vector<REAL>& getUB() const { return ub; }
-
-   const std::vector<REAL>& getLHS() const { return lhs; }
-
-   const std::vector<REAL>& getRHS() const { return rhs; }
-
-   const bitset& getInteger() const { return integer; }
+   const dynamic_bitset<>& getInteger() const { return integer; }
 
    const std::vector<std::string>& getVarNames() const { return varNames; }
 
    const std::vector<std::string>& getConsNames() const { return consNames; }
 
-   VectorView<REAL> getRow(size_t row) const
-   {
-      const REAL* coefBegin =
-        constMatrix.coefficients.data() + constMatrix.rowStart[row];
-      const size_t* indBegin =
-        constMatrix.indices.data() + constMatrix.rowStart[row];
-      size_t size = constMatrix.rowStart[row + 1] - constMatrix.rowStart[row];
+   VectorView getRow(int row) const;
 
-      return { coefBegin, indBegin, size };
-   }
+   VectorView getCol(int col) const;
 
-   VectorView<REAL> getCol(size_t col) const
-   {
-      const REAL* coefBegin =
-        constMatrixT.coefficients.data() + constMatrixT.rowStart[col];
-      const size_t* indBegin =
-        constMatrixT.indices.data() + constMatrixT.rowStart[col];
-      size_t size = constMatrixT.rowStart[col + 1] - constMatrixT.rowStart[col];
+   const std::vector<int>& getUpLocks() const { return upLocks; }
 
-      return { coefBegin, indBegin, size };
-   }
+   const std::vector<int>& getDownLocks() const { return downLocks; }
 
-   const std::vector<size_t>& getUpLocks() { return upLocks; }
-
-   const std::vector<size_t>& getDownLocks() { return downLocks; }
+   Statistics getStatistics() const { return stats; }
 
    private:
-   friend class mpsreader;
+   static SparseMatrix transpose(const SparseMatrix&, const std::vector<int>&);
 
    // min {obj*x}
-   std::vector<REAL> objective;
+   std::vector<double> objective;
+   double objoffset = 0.0;
 
    // lhs <= Ax <= rhs
-   std::vector<REAL> lhs;
-   std::vector<REAL> rhs;
+   std::vector<double> lhs;
+   std::vector<double> rhs;
 
    // lb <= x <= ub
-   std::vector<REAL> lb;
-   std::vector<REAL> ub;
+   std::vector<double> lb;
+   std::vector<double> ub;
 
    std::vector<std::string> varNames;
    std::vector<std::string> consNames;
 
    // row-major sparse
-   SparseMatrix<REAL> constMatrix;
+   SparseMatrix constMatrix;
 
    // column-major sparse
-   SparseMatrix<REAL> constMatrixT;
+   SparseMatrix constMatrixT;
 
-   bitset integer;
+   dynamic_bitset<> integer;
 
-   std::vector<size_t> downLocks;
-   std::vector<size_t> upLocks;
+   std::vector<int> binary;
+   std::vector<int> generalInt;
+   std::vector<int> continuous;
+
+   std::vector<int> downLocks;
+   std::vector<int> upLocks;
+
+   Statistics stats;
 };
 
 #endif

@@ -7,10 +7,10 @@
 #include "core/MIP.h"
 #include <ilcplex/ilocplex.h>
 
-class CPXSolver : public LPSolver<double>
+class CPXSolver : public LPSolver
 {
    public:
-   CPXSolver(const MIP<double>&);
+   CPXSolver(const MIP&);
 
    CPXSolver(const CPXSolver&);
 
@@ -18,9 +18,7 @@ class CPXSolver : public LPSolver<double>
 
    virtual LPResult solve() override;
 
-   virtual LPResult solve(LPAlgorithm) override;
-
-   virtual std::unique_ptr<LPSolver<double>> makeCopy() const override;
+   virtual std::unique_ptr<LPSolver> makeCopy() const override;
 
    virtual void branch(int column, double val, Direction direction) override;
 
@@ -32,8 +30,8 @@ class CPXSolver : public LPSolver<double>
    IloCplex cplex;
    bool deleteEnv;
 
-   size_t ncols;
-   size_t nrows;
+   int ncols;
+   int nrows;
 };
 
 #endif

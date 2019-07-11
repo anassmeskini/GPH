@@ -2,10 +2,9 @@
 #define _HEURISTIC_HPP
 
 #include "Common.h"
-#include "LPFactory.h"
+#include "LPSolver.h"
 #include "MIP.h"
 #include "MySolver.h"
-#include "Problem.h"
 
 #include <memory>
 #include <optional>
@@ -22,34 +21,39 @@ struct Node
    int depth;
 };
 
+struct Solution
+{
+   std::vector<double> solution;
+   double objective;
+};
+
 class HeuristicMethod
 {
    public:
-   virtual std::optional<std::vector<double>> search(
-     const MIP<double>&,         // original problem
-     const std::vector<double>&, // lb at the node
-     const std::vector<double>&, // ub at the node
-     const LPResult&,            // LP solution at the current node
-     const std::vector<double>&, // activities of the rows at the LP solution
-     const std::vector<size_t>&, // integer variables with fractional values
-     const LPFactory&) = 0;      // factory to copy the lp model
+   virtual std::optional<Solution> search(
+     const MIP&,                   // original problem
+     const std::vector<double>&,   // lb at the node
+     const std::vector<double>&,   // ub at the node
+     const std::vector<Activity>&, // activities
+     const LPResult&,              // LP solution at the current node
+     const std::vector<double>&,   // activities of the rows at the LP solution
+     const std::vector<int>&,      // integer variables with fractional values
+     std::shared_ptr<LPSolver>) = 0; // lp solver
 
    virtual ~HeuristicMethod() {}
 };
 
-class Heuristics
+class Search
 {
    public:
-   Heuristics() = default;
-   Heuristics(std::initializer_list<HeuristicMethod*>);
+   Search() = default;
+   Search(std::initializer_list<HeuristicMethod*>);
 
-   void run(MIP<double>&&);
+   void run(const MIP&);
 
-   ~Heuristics();
+   ~Search();
 
    private:
-   void cleanNodes() {}
-
    std::vector<std::unique_ptr<HeuristicMethod>> heuristics;
 };
 

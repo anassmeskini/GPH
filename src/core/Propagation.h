@@ -1,19 +1,20 @@
 #ifndef PROPAGATION_HPP
 #define PROPAGATION_HPP
 
-#include "Problem.h"
+#include "Common.h"
+#include "MIP.h"
 
 // assumes that the lb and ub reftlect the fixing, and the activities are up to
 // date
 int
-propagate(const MIP<double>& problem,
+propagate(const MIP& problem,
           std::vector<double>& lb,
           std::vector<double>& ub,
           std::vector<Activity>& activities,
-          size_t col);
+          int col);
 
 bool
-updateActivities(VectorView<double> colview,
+updateActivities(VectorView colview,
                  double oldlb,
                  double newlb,
                  double oldub,
@@ -30,7 +31,7 @@ enum class ChangedBound
 
 template<ChangedBound chgbd>
 bool
-updateActivities(VectorView<double> colview,
+updateActivities(VectorView colview,
                  double oldb,
                  double newb,
                  std::vector<Activity>& activities,

@@ -1,7 +1,6 @@
 #ifndef _COMMON_HPP_
 #define _COMMON_HPP_
 
-#include "Bitset.h"
 #include "MIP.h"
 #include "Numerics.h"
 #include "SparseMatrix.h"
@@ -9,24 +8,6 @@
 #include <cassert>
 #include <chrono>
 #include <memory>
-
-template<typename REAL>
-struct VectorView
-{
-   VectorView(const REAL* _array, const size_t* _indices, size_t _size)
-     : coefs(_array)
-     , indices(_indices)
-     , size(_size)
-   {
-   }
-
-   VectorView(const VectorView<REAL>&) = default;
-
-   const REAL* coefs;
-   // use int?
-   const size_t* indices;
-   size_t size;
-};
 
 struct Activity
 {
@@ -37,16 +18,28 @@ struct Activity
    int ninfmax = 0;
 };
 
+struct LPSolInfo
+{
+   std::vector<double> rowActivities;
+   std::vector<int> fractional;
+};
+
 std::vector<Activity>
-computeActivities(const MIP<double>& mip);
+computeActivities(const MIP& mip);
 
 std::vector<double>
-computeSolActivities(const MIP<double>& mip, const std::vector<double>& sol);
+computeSolActivities(const MIP& mip, const std::vector<double>& sol);
+
+std::vector<int>
+getFractional(const std::vector<double>&, const dynamic_bitset<>&);
+
+std::vector<int>
+getIndentity(int ncols);
 
 template<typename REAL>
 bool
-checkFeasibility(const MIP<REAL>& mip,
-                 const std::vector<REAL>& sol,
+checkFeasibility(const MIP& mip,
+                 const std::vector<double>& sol,
                  REAL boundtol,
                  REAL constol)
 {
@@ -58,7 +51,7 @@ checkFeasibility(const MIP<REAL>& mip,
 
    assert(sol.size() == mip.getNCols());
 
-   for (size_t colid = 0; colid < mip.getNCols(); ++colid)
+   for (int colid = 0; colid < mip.getNCols(); ++colid)
    {
       if (sol[colid] > ub[colid] + boundtol ||
           sol[colid] < lb[colid] - boundtol)
@@ -68,19 +61,64 @@ checkFeasibility(const MIP<REAL>& mip,
          return false;
    }
 
-   for (size_t rowid = 0; rowid < mip.getNRows(); ++rowid)
+   for (int rowid = 0; rowid < mip.getNRows(); ++rowid)
    {
-      auto& row = mip.getRow(rowid);
+      auto [coefs, indices, size] = mip.getRow(rowid);
       REAL activity{ 0.0 };
 
-      for (size_t id = 0; id < row.size; ++id)
-         activity += row.coefs[id] * sol[row.indices[id]];
+      for (int id = 0; id < size; ++id)
+         activity += coefs[id] * sol[indices[id]];
 
       if (activity > rhs[rowid] + constol || activity < lhs[rowid] - constol)
          return false;
    }
 
    return true;
+}
+
+template<typename COMP>
+void
+sortRows(SparseMatrix& mat, COMP&& comp)
+{
+   const std::vector<int> identity = getIndentity(mat.ncols);
+   std::vector<int> permutation;
+   std::vector<int> indcopy;
+   std::vector<double> coefcopy;
+
+   permutation.reserve(mat.ncols);
+   indcopy.reserve(mat.ncols);
+   coefcopy.reserve(mat.ncols);
+
+   for (int row = 0; row < mat.nrows; ++row)
+   {
+      const int rowStart = mat.rowStart[row];
+      const int size = mat.rowStart[row + 1] - mat.rowStart[row];
+      int* indices = mat.indices.data() + rowStart;
+      double* coefs = mat.coefficients.data() + rowStart;
+
+      assert(size < mat.ncols);
+
+      permutation.resize(size);
+      indcopy.resize(size);
+      coefcopy.resize(size);
+
+      std::memcpy(permutation.data(), identity.data(), sizeof(int) * size);
+
+      std::sort(std::begin(permutation),
+                std::end(permutation),
+                [&](int left, int right) {
+                   return comp(indices[left], indices[right]);
+                });
+
+      for (size_t i = 0; i < permutation.size(); ++i)
+      {
+         indcopy[i] = indices[permutation[i]];
+         coefcopy[i] = coefs[permutation[i]];
+      }
+
+      std::memcpy(indices, indcopy.data(), sizeof(int) * size);
+      std::memcpy(coefs, coefcopy.data(), sizeof(double) * size);
+   }
 }
 
 #endif

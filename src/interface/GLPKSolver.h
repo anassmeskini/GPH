@@ -7,10 +7,10 @@
 #include "core/MIP.h"
 #include <glpk.h>
 
-class GLPKSolver : public LPSolver<double>
+class GLPKSolver : public LPSolver
 {
    public:
-   GLPKSolver(const MIP<double>&);
+   GLPKSolver(const MIP&);
 
    GLPKSolver(const GLPKSolver&);
 
@@ -18,17 +18,15 @@ class GLPKSolver : public LPSolver<double>
 
    virtual LPResult solve() override;
 
-   virtual LPResult solve(LPAlgorithm) override;
-
-   virtual std::unique_ptr<LPSolver<double>> makeCopy() const override;
+   virtual std::unique_ptr<LPSolver> makeCopy() const override;
 
    virtual void branch(int column, double val, Direction direction) override;
 
    private:
    glp_prob* problem;
 
-   size_t ncols;
-   size_t nrows;
+   int ncols;
+   int nrows;
 };
 
 #endif

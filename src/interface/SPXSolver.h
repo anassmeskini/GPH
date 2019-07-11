@@ -5,10 +5,10 @@
 #include "core/LPSolver.h"
 #include "soplex.h"
 
-class SPXSolver : public LPSolver<double>
+class SPXSolver : public LPSolver
 {
    public:
-   SPXSolver(const MIP<double>&);
+   SPXSolver(const MIP&);
 
    SPXSolver(const SPXSolver&);
 
@@ -16,14 +16,14 @@ class SPXSolver : public LPSolver<double>
 
    virtual LPResult solve() override;
 
-   virtual std::unique_ptr<LPSolver<double>> makeCopy() const override;
+   virtual std::unique_ptr<LPSolver> makeCopy() const override;
 
    virtual void branch(int column, double val, Direction direction) override;
 
    private:
    soplex::SoPlex mysoplex;
-   size_t ncols;
-   size_t nrows;
+   int ncols;
+   int nrows;
 };
 
 #endif

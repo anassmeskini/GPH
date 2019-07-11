@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 3.0.0)
-project(LPS VERSION 0.0.1 LANGUAGES CXX)
+project(LPS LANGUAGES CXX
+            DESCRIPTION "Heuristics for mixed integer programming")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -20,7 +21,6 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
-find_package(Boost COMPONENTS iostreams REQUIRED)
 find_package(TBB REQUIRED tbb)
 
 #use the header only version of fmtlib

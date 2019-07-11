@@ -1,15 +1,12 @@
-#ifndef MPS_READER_HPP
-#define MPS_READER_HPP
+#ifndef _MPS_READER_HPP
+#define _MPS_READER_HPP
 
 #include "core/MIP.h"
-
+#include "dynamic_bitset/dynamic_bitset.hpp"
 #include "ska/Hash.hpp"
+
 #include <algorithm>
 #include <array>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/iostreams/filter/bzip2.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -18,101 +15,101 @@
 #include <string>
 #include <unordered_map>
 
-struct Split
-{
-   std::array<std::pair<int, int>, 5> words;
-   size_t size_ = 0;
-
-   int size(size_t i) { return words[i].second - words[i].first; }
-   size_t size() { return size_; }
-};
-
-// TODO handle RANGES section
-class mpsreader
+class MPSWrapper
 {
    public:
-   static MIP<double> parse(const std::string& filename);
+   MPSWrapper(std::istream& _is)
+     : is(_is)
+     , integer_section(false)
+     , linenb(0)
+   {
+      buf[0] = '\0';
+   }
+
+   bool readLine() noexcept;
+
+   const char* field1() const { return field_1; }
+   const char* field2() const { return field_2; }
+   const char* field3() const { return field_3; }
+   const char* field4() const { return field_4; }
+   const char* field5() const { return field_5; }
+   const char* field6() const { return field_6; }
+
+   bool isIntSection() const { return integer_section; }
+
+   int getLineNb() const { return linenb; }
 
    private:
-   enum Section : int
+   std::istream& is;
+
+   char buf[256];
+   bool integer_section;
+
+   char* field_1 = nullptr;
+   char* field_2 = nullptr;
+   char* field_3 = nullptr;
+   char* field_4 = nullptr;
+   char* field_5 = nullptr;
+   char* field_6 = nullptr;
+
+   int linenb = 0;
+
+   static constexpr char blank = ' ';
+   static constexpr char tab = '\t';
+};
+
+class MPSReader
+{
+   public:
+   static MIP parse(MPSWrapper&);
+
+   private:
+   enum Section : uint8_t
    {
       NAME,
       ROWS,
       COLUMNS,
       RHS,
       BOUNDS,
+      RANGES,
       END,
-      FAIL,
-      NONE,
+      FORMAT_ERROR,
    };
-
-   enum ConsType
-   {
-      LESS,
-      GREATER,
-      EQUAL,
-      OBJECTIVE,
-   };
-
    static Section error_section;
 
-   // stores info about the rows when reading the ROWS section
-   // name -> <contraint type, row id>
-   using Rows = HashMap<std::string, std::pair<ConsType, size_t>>;
+   static Section parseName(MPSWrapper&, std::string& name);
 
-   // name -> column id
-   using Cols = HashMap<std::string, size_t>;
+   static Section parseRows(MPSWrapper&, Rows& rows, std::string& objName);
 
-   static Section parseName(boost::iostreams::filtering_istream& file,
-                            std::string& name);
-
-   static Section parseRows(boost::iostreams::filtering_istream& file,
-                            Rows& rows,
-                            std::string& objName);
-
-   static Section parseColumns(boost::iostreams::filtering_istream& file,
+   static Section parseColumns(MPSWrapper&,
                                const Rows& rows,
                                Cols& cols,
                                std::vector<double>& coefs,
-                               std::vector<size_t>& idxT,
-                               std::vector<size_t>& rstart,
+                               std::vector<int>& idxT,
+                               std::vector<int>& rstart,
                                std::vector<double>& obj,
                                const std::string& objName,
-                               bitset&,
-                               std::vector<size_t>&,
+                               dynamic_bitset<>&,
+                               std::vector<int>&,
                                std::vector<std::string>&);
 
-   static Section parseRhs(boost::iostreams::filtering_istream& file,
+   static Section parseRhs(MPSWrapper&,
                            const Rows& rows,
                            std::vector<double>& lhs,
                            std::vector<double>& rhs);
 
-   static Section parseBounds(boost::iostreams::filtering_istream& file,
+   static Section parseBounds(MPSWrapper&,
                               const Cols& cols,
                               std::vector<double>& lbs,
                               std::vector<double>& ubs,
-                              bitset& integer);
+                              dynamic_bitset<>& integer);
 
-   static SparseMatrix<double> compress(const std::vector<double>&, size_t);
+   static Section parseRanges(MPSWrapper&,
+                              const Rows& rows,
+                              std::vector<double>& lhs,
+                              std::vector<double>& rbs);
 
-   static SparseMatrix<double> transpose(const SparseMatrix<double>&,
-                                         const std::vector<size_t>&);
-
-   static MIP<double> makeMip(const Rows& rows,
-                              const Cols& cols,
-                              std::vector<double>&& coefsT,
-                              std::vector<size_t>&& idxT,
-                              std::vector<size_t>&& rstartT,
-                              std::vector<double>&& rhs,
-                              std::vector<double>&& lhs,
-                              std::vector<double>&& lbs,
-                              std::vector<double>&& ubs,
-                              std::vector<double>&& obj,
-                              bitset&& integer,
-                              const std::vector<size_t>& rowSize,
-                              std::vector<std::string>&&);
-
-   static std::string getErrorStr();
+   static SparseMatrix transpose(const SparseMatrix&, const std::vector<int>&);
 };
 
 #endif

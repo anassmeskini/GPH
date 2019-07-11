@@ -11,6 +11,8 @@ using MySolver = CPXSolver;
 using MySolver = SPXSolver;
 #elif GLPK_FOUND
 using MySolver = GLPKSolver;
+#else
+static_assert(0, "");
 #endif
 
 #endif
