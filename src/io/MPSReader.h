@@ -6,14 +6,11 @@
 #include "ska/Hash.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <fstream>
-#include <iostream>
 #include <numeric>
-#include <set>
 #include <string>
-#include <unordered_map>
+#include <string_view>
 
 class MPSWrapper
 {
@@ -61,7 +58,7 @@ class MPSWrapper
 class MPSReader
 {
    public:
-   static MIP parse(MPSWrapper&);
+   static MIP parse(const std::string&);
 
    private:
    enum Section : uint8_t

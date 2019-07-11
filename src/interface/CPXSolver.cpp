@@ -54,10 +54,7 @@ CPXSolver::CPXSolver(const MIP& mip)
    }
    catch (IloAlgorithm::CannotExtractException& ex)
    {
-      auto ext = ex.getExtractables();
-      auto al = ex.getAlgorithm();
-      // std::cout << ext;
-      std::cout << al;
+      // TODO
       assert(0);
    }
 }

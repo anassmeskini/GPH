@@ -26,16 +26,12 @@ main(int argc, char** argv)
 
    try
    {
-      std::ifstream in(args.probFile);
-      MPSWrapper mps(in);
-
       auto t0 = Timer::now();
-      mip = MPSReader::parse(mps);
+      mip = MPSReader::parse(args.probFile);
       auto t1 = Timer::now();
 
       Message::print("Reading the problem took: {:0.2f}s",
                      Timer::seconds(t1, t0));
-      in.close();
    }
    catch (const std::exception& ex)
    {

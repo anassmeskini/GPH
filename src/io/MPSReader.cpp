@@ -99,8 +99,14 @@ MPSWrapper::readLine() noexcept
 // read the mps, fill a transposed constraint matrix
 // construct the sparse constraint matrix from the transposed
 MIP
-MPSReader::parse(MPSWrapper& mps)
+MPSReader::parse(const std::string& file)
 {
+   std::fstream in(file);
+   if (!in.is_open())
+      throw std::runtime_error("unable to open file");
+
+   MPSWrapper mps(in);
+
    std::string name;
 
    Rows rows;
