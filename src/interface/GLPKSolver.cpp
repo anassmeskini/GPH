@@ -157,4 +157,47 @@ GLPKSolver::branch(int col, double val, Direction direction)
       glp_set_row_bnds(problem, nrows, GLP_UP, 0.0, val);
 }
 
+void
+GLPKSolver::changeBounds(int column, double lb, double ub)
+{
+   constexpr double inf = std::numeric_limits<double>::infinity();
+
+   int boundtype;
+   if (lb == -inf && ub == inf)
+      boundtype = GLP_FR;
+   else if (lb == -inf)
+      boundtype = GLP_UP;
+   else if (ub == inf)
+      boundtype = GLP_LO;
+   else if (lb == ub)
+      boundtype = GLP_FX;
+   else
+      boundtype = GLP_DB;
+
+   glp_set_col_bnds(problem, column + 1, boundtype, lb, ub);
+}
+
+void
+GLPKSolver::changeBounds(const std::vector<double>& lb,
+                         const std::vector<double>& ub)
+{
+   constexpr double inf = std::numeric_limits<double>::infinity();
+
+   for (int col = 0; col < ncols; ++col)
+   {
+      int boundtype;
+      if (lb[col] == -inf && ub[col] == inf)
+         boundtype = GLP_FR;
+      else if (lb[col] == -inf)
+         boundtype = GLP_UP;
+      else if (ub[col] == inf)
+         boundtype = GLP_LO;
+      else if (lb[col] == ub[col])
+         boundtype = GLP_FX;
+      else
+         boundtype = GLP_DB;
+
+      glp_set_col_bnds(problem, col + 1, boundtype, lb[col], ub[col]);
+   }
+}
 #endif // GLPK_FOUND

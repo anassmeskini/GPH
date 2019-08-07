@@ -150,7 +150,7 @@ MPSReader::parse(const std::string& file)
             t0 = Timer::now();
             nextsection = parseRows(mps, rows, objName);
             t1 = Timer::now();
-            Message::debug("Section ROWS parsed in {:0.2f}s\n",
+            Message::debug("Section ROWS parsed in {:0.2f}s",
                            Timer::seconds(t1, t0));
             break;
 
@@ -168,7 +168,7 @@ MPSReader::parse(const std::string& file)
                                        rowSize,
                                        varNames);
             t1 = Timer::now();
-            Message::debug("Section COLUMNS parsed in {:0.2f}s\n",
+            Message::debug("Section COLUMNS parsed in {:0.2f}s",
                            Timer::seconds(t1, t0));
             break;
 
@@ -176,7 +176,7 @@ MPSReader::parse(const std::string& file)
             t0 = Timer::now();
             nextsection = parseRhs(mps, rows, lhs, rhs);
             t1 = Timer::now();
-            Message::debug("Section RHS parsed in {:0.2f}s\n",
+            Message::debug("Section RHS parsed in {:0.2f}s",
                            Timer::seconds(t1, t0));
             break;
 
@@ -184,7 +184,7 @@ MPSReader::parse(const std::string& file)
             t0 = Timer::now();
             nextsection = parseBounds(mps, cols, lbs, ubs, integer);
             t1 = Timer::now();
-            Message::debug("Section BOUNDS parsed in {:0.2f}s\n",
+            Message::debug("Section BOUNDS parsed in {:0.2f}s",
                            Timer::seconds(t1, t0));
             break;
 
@@ -192,7 +192,7 @@ MPSReader::parse(const std::string& file)
             t0 = Timer::now();
             nextsection = parseRanges(mps, rows, lhs, rhs);
             t1 = Timer::now();
-            Message::debug("Section BOUNDS parsed in {:0.2f}s\n",
+            Message::debug("Section BOUNDS parsed in {:0.2f}s",
                            Timer::seconds(t1, t0));
             break;
 

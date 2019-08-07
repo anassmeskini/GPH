@@ -1,15 +1,6 @@
 #include "SparseMatrix.h"
 
-SparseMatrix::SparseMatrix(int nnz, int nCols)
-  : ncols(nCols)
-  , nrows(0)
-{
-   coefficients.resize(nnz);
-   indices.resize(nnz);
-   rowStart.push_back(0);
-}
-
-SparseMatrix::SparseMatrix(SparseMatrix&& other)
+SparseMatrix::SparseMatrix(SparseMatrix&& other) noexcept
 {
    ncols = other.ncols;
    nrows = other.nrows;
@@ -20,7 +11,7 @@ SparseMatrix::SparseMatrix(SparseMatrix&& other)
 }
 
 SparseMatrix&
-SparseMatrix::operator=(SparseMatrix&& other)
+SparseMatrix::operator=(SparseMatrix&& other) noexcept
 {
    ncols = other.ncols;
    nrows = other.nrows;

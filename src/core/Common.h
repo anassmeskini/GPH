@@ -30,6 +30,15 @@ computeActivities(const MIP& mip);
 std::vector<double>
 computeSolActivities(const MIP& mip, const std::vector<double>& sol);
 
+int
+updateSolActivity(std::vector<double>&,
+                  VectorView,
+                  const std::vector<double>&,
+                  const std::vector<double>&,
+                  double,
+                  std::vector<int>&,
+                  dynamic_bitset<>&);
+
 std::vector<int>
 getFractional(const std::vector<double>&, const dynamic_bitset<>&);
 
@@ -49,7 +58,7 @@ checkFeasibility(const MIP& mip,
    const auto& rhs = mip.getRHS();
    const auto& integer = mip.getInteger();
 
-   assert(sol.size() == mip.getNCols());
+   assert(sol.size() == static_cast<size_t>(mip.getNCols()));
 
    for (int colid = 0; colid < mip.getNCols(); ++colid)
    {
@@ -121,4 +130,33 @@ sortRows(SparseMatrix& mat, COMP&& comp)
    }
 }
 
+bool
+hasZeroLockRounding(const std::vector<int>&,  // down locks
+                    const std::vector<int>&,  // up locks
+                    const std::vector<int>&); // fractional columns
+
+bool
+hasZeroLockRounding(const std::vector<double>&, // lp solution
+                    const std::vector<int>&,    // down locks
+                    const std::vector<int>&,    // up locks
+                    const dynamic_bitset<>&);   // is integer
+
+// assumes the solution has a zero lock rounding
+// returns the diff in the cost
+double
+zeroLockRound(std::vector<double>&,        // lp solution
+              const std::vector<int>&,     // down locks
+              const std::vector<int>&,     // fractional
+              const std::vector<double>&); // objective
+
+std::optional<std::pair<std::vector<double>, double>>
+minLockRound(const MIP& mip,             // mip
+             const std::vector<double>&, // solution
+             double,                     // objective
+             const std::vector<int>&);   // fractional columns
+
+void
+maxOutSolution(const MIP& mip,
+               std::vector<double>& solution,
+               const std::vector<double>& activity);
 #endif

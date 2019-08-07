@@ -12,6 +12,7 @@ struct ArgInfo
 
    int timelimit;
    int nthreads;
+   int verbosity;
 };
 
 std::optional<ArgInfo>

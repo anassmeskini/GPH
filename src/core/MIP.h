@@ -87,7 +87,7 @@ class MIP
 
    MIP(MIP&&) = default;
 
-   MIP& operator=(MIP&&);
+   MIP& operator=(MIP&&) noexcept;
 
    int getNCols() const { return constMatrixT.nrows; }
 
@@ -109,15 +109,25 @@ class MIP
 
    const std::vector<std::string>& getConsNames() const { return consNames; }
 
-   VectorView getRow(int row) const;
+   VectorView getRow(int row) const noexcept;
 
-   VectorView getCol(int col) const;
+   VectorView getCol(int col) const noexcept;
+
+   int getRowSize(int row) const noexcept;
+
+   int getColSize(int row) const noexcept;
 
    const std::vector<int>& getUpLocks() const { return upLocks; }
 
    const std::vector<int>& getDownLocks() const { return downLocks; }
 
    Statistics getStatistics() const { return stats; }
+
+   const std::vector<int>& getBinaryVars() const { return binary; }
+
+   const std::vector<int>& getIntVars() const { return generalInt; }
+
+   const std::vector<int>& getContVars() const { return continuous; }
 
    private:
    static SparseMatrix transpose(const SparseMatrix&, const std::vector<int>&);

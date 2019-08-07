@@ -8,13 +8,15 @@
 #include "io/MPSReader.h"
 #include "io/Message.h"
 #include "methods/BoundSolution.h"
+#include "methods/IntShifting.h"
 #include "methods/MinLockRounding.h"
+#include "methods/Shifting.h"
 
-#include <memory>
+#include <tbb/task_scheduler_init.h>
 
-int
-main(int argc, char** argv)
+int main(int argc, char **argv)
 {
+   // read arguments
    std::optional<ArgInfo> optionalArgs = parseArgs(argc, argv);
 
    if (!optionalArgs)
@@ -22,18 +24,37 @@ main(int argc, char** argv)
 
    auto args = optionalArgs.value();
 
+   // set verbosity level
+   switch (args.verbosity)
+   {
+   case 1:
+      Message::verbosity = Message::RELEASE;
+      break;
+   case 2:
+      Message::verbosity = Message::DEBUG;
+      break;
+   case 3:
+      Message::verbosity = Message::DEBUG_DETAILS;
+      break;
+   }
+
+   // set number of threads
+   assert(args.nthreads == -1 || args.nthreads >= 1);
+   tbb::task_scheduler_init init(args.nthreads);
+
    MIP mip;
 
+   // read mip
    try
    {
       auto t0 = Timer::now();
       mip = MPSReader::parse(args.probFile);
       auto t1 = Timer::now();
 
-      Message::print("Reading the problem took: {:0.2f}s",
+      Message::print("Reading the problem took: {:0.2f} sec.",
                      Timer::seconds(t1, t0));
    }
-   catch (const std::exception& ex)
+   catch (const std::exception &ex)
    {
       Message::print(ex.what());
       return 1;
@@ -41,7 +62,8 @@ main(int argc, char** argv)
 
    printStats(mip.getStatistics());
 
-   Search search({ new BoundSolution, new MinLockRounding });
+   Search search{new BoundSolution, new MinLockRounding, new Shifting,
+                 new IntShifting};
    search.run(mip);
 
    return 0;

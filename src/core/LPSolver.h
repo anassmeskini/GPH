@@ -25,14 +25,6 @@ struct LPResult
 
 std::string to_str(LPResult::Status);
 
-enum class LPAlgorithm
-{
-   PRIMAL_SPX,
-   DUAL_SPX,
-   BARRIER,
-   AUTO
-};
-
 enum class Direction
 {
    UP,
@@ -54,9 +46,14 @@ class LPSolver
 
    virtual void branch(int column, double val, Direction direction) = 0;
 
-   virtual std::unique_ptr<LPSolver> makeCopy() const = 0;
+   virtual void changeBounds(int column, double lb, double ub) = 0;
+
+   virtual void changeBounds(const std::vector<double>&,
+                             const std::vector<double>&) = 0;
 
    private:
+   virtual std::unique_ptr<LPSolver> makeCopy() const = 0;
+
    mutable tbb::mutex copyLock;
 };
 

@@ -3,8 +3,7 @@
 
 #include <iostream>
 
-std::optional<ArgInfo>
-parseArgs(int argc, char** argv)
+std::optional<ArgInfo> parseArgs(int argc, char **argv)
 {
 
    using namespace clipp;
@@ -14,16 +13,17 @@ parseArgs(int argc, char** argv)
    arginfo.timelimit = -1;
    arginfo.nthreads = -1;
    arginfo.probFile = "mip.mps";
+   arginfo.verbosity = 2;
 
    auto cli =
-     (option("-i", "--in") &
-        value("infile", arginfo.probFile).doc("input problem file"),
-      option("-l", "--limit") &
-        value("tlimit", arginfo.timelimit).doc("time limit"),
-      option("-o", "--output") &
-        value("outfile", arginfo.inSolFile).doc("output file for the solution"),
-      option("-t", "--thread") &
-        value("nthreads", arginfo.nthreads).doc("number of threads to use"));
+       (value("input file", arginfo.probFile),
+        option("-l", "--limit") &
+            value("tlimit", arginfo.timelimit).doc("time limit"),
+        option("-o", "--output") & value("outfile", arginfo.inSolFile)
+                                       .doc("output file for the solution"),
+        option("-v") & value("verbosity", arginfo.verbosity),
+        option("-t", "--thread") & value("nthreads", arginfo.nthreads)
+                                       .doc("number of threads to use"));
 
    if (!parse(argc, argv, cli))
    {

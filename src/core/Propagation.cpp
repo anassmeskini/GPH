@@ -3,14 +3,11 @@
 #include "Numerics.h"
 #include "io/Message.h"
 
-template<>
-bool
-updateActivities<ChangedBound::LOWER>(VectorView colview,
-                                      double oldlb,
-                                      double newlb,
-                                      std::vector<Activity>& activities,
-                                      const std::vector<double>& lhs,
-                                      const std::vector<double>& rhs)
+template <>
+void
+updateActivities<ChangedBound::LOWER>(
+    VectorView colview, double oldlb, double newlb,
+    std::vector<Activity>& activities) noexcept
 {
    auto [colcoefs, colindices, colsize] = colview;
    bool lbfinite = !Num::isInf(oldlb);
@@ -21,7 +18,7 @@ updateActivities<ChangedBound::LOWER>(VectorView colview,
       int row = colindices[i];
       const double coef = colcoefs[i];
 
-      if (Num::greater(coef, 0.0))
+      if (coef > 0.0)
       {
          if (lbfinite)
             activities[row].min += coef * (newlb - oldlb);
@@ -41,31 +38,14 @@ updateActivities<ChangedBound::LOWER>(VectorView colview,
             --activities[row].ninfmax;
          }
       }
-
-      if ((Num::greater(activities[row].min, rhs[row]) &&
-           !activities[row].ninfmin) ||
-          (Num::less(activities[row].max, lhs[row]) &&
-           !activities[row].ninfmax))
-      {
-         /*Message::debug("Act update infeasiblity: row {} activities {} {},
-            sides {} {}", row, activities[row].min, activities[row].max,
-                        lhs[row],
-                        rhs[row]);*/
-         return false;
-      }
    }
-
-   return true;
 }
 
-template<>
-bool
-updateActivities<ChangedBound::UPPER>(VectorView colview,
-                                      double oldub,
-                                      double newub,
-                                      std::vector<Activity>& activities,
-                                      const std::vector<double>& lhs,
-                                      const std::vector<double>& rhs)
+template <>
+void
+updateActivities<ChangedBound::UPPER>(
+    VectorView colview, double oldub, double newub,
+    std::vector<Activity>& activities) noexcept
 {
    const double* colcoefs = colview.coefs;
    const int* colindices = colview.indices;
@@ -79,7 +59,7 @@ updateActivities<ChangedBound::UPPER>(VectorView colview,
       int row = colindices[i];
       const double coef = colcoefs[i];
 
-      if (Num::greater(coef, 0.0))
+      if (coef > 0.0)
       {
          if (ubfinite)
             activities[row].max += coef * (newub - oldub);
@@ -99,36 +79,13 @@ updateActivities<ChangedBound::UPPER>(VectorView colview,
             --activities[row].ninfmin;
          }
       }
-
-      // TODO check if activity.min > activity.max
-      if ((Num::greater(activities[row].min, rhs[row]) &&
-           !activities[row].ninfmin) ||
-          (Num::less(activities[row].max, lhs[row]) &&
-           !activities[row].ninfmax))
-      {
-         /*Message::debug(
-           "Act update infeasility: row {} activities {} {}, sides {} {}",
-           row,
-           activities[row].min,
-           activities[row].max,
-           lhs[row],
-           rhs[row]);*/
-         return false;
-      }
    }
-
-   return true;
 }
 
-bool
-updateActivities(VectorView colview,
-                 double oldlb,
-                 double newlb,
-                 double oldub,
-                 double newub,
-                 std::vector<Activity>& activities,
-                 const std::vector<double>& lhs,
-                 const std::vector<double>& rhs)
+void
+updateActivities(VectorView colview, double oldlb, double newlb,
+                 double oldub, double newub,
+                 std::vector<Activity>& activities) noexcept
 {
    const double* colcoefs = colview.coefs;
    const int* colindices = colview.indices;
@@ -144,7 +101,7 @@ updateActivities(VectorView colview,
       int row = colindices[i];
       const double coef = colcoefs[i];
 
-      if (Num::greater(coef, 0.0))
+      if (coef > 0.0)
       {
          if (lbfinite)
             activities[row].min += coef * (newlb - oldlb);
@@ -180,33 +137,14 @@ updateActivities(VectorView colview,
             --activities[row].ninfmax;
          }
       }
-
-      if ((Num::greater(activities[row].min, rhs[row]) &&
-           !activities[row].ninfmin) ||
-          (Num::less(activities[row].max, lhs[row]) &&
-           !activities[row].ninfmax))
-      {
-         /*Message::debug(
-           "Act update infeasibility: row {} activities {} {}, sides {} {}",
-           row,
-           activities[row].min,
-           activities[row].max,
-           lhs[row],
-           rhs[row]);*/
-         return false;
-      }
    }
-
-   return true;
 }
 
 static bool
-propagateRow(const MIP& problem,
-             int row,
-             std::vector<Activity>& activities,
-             std::vector<double>& lb,
+propagateRow(const MIP& problem, int row,
+             std::vector<Activity>& activities, std::vector<double>& lb,
              std::vector<double>& ub,
-             std::vector<int>& changedCols)
+             std::vector<int>& changedCols) noexcept
 {
    auto [rowcoefs, rowindices, rowsize] = problem.getRow(row);
 
@@ -234,7 +172,7 @@ propagateRow(const MIP& problem,
       const bool ubInf = Num::isInf(ub[col]);
       const bool lbInf = Num::isMinusInf(lb[col]);
 
-      if (Num::greater(coef, 0.0))
+      if (coef > 0.0)
       {
          if (!ubInf)
             maxPartialActivity -= coef * ub[col];
@@ -254,18 +192,20 @@ propagateRow(const MIP& problem,
          }
 
          implbfinite =
-           activity.ninfmax == 0 || (activity.ninfmax == 1 && ubInf);
+             (!Num::isMinusInf(lhs[row])) &&
+             (activity.ninfmax == 0 || (activity.ninfmax == 1 && ubInf));
          impubfinite =
-           activity.ninfmin == 0 || (activity.ninfmin == 1 && lbInf);
+             (!Num::isInf(rhs[row])) &&
+             (activity.ninfmin == 0 || (activity.ninfmin == 1 && lbInf));
       }
       else
       {
          assert(coef != 0.0);
 
-         if (!lbInf)
-            maxPartialActivity -= coef * lb[col];
          if (!ubInf)
             minPartialActivity -= coef * ub[col];
+         if (!lbInf)
+            maxPartialActivity -= coef * lb[col];
 
          if (integer[col])
          {
@@ -279,62 +219,40 @@ propagateRow(const MIP& problem,
          }
 
          implbfinite =
-           activity.ninfmin == 0 || (activity.ninfmin == 1 && lbInf);
+             (!Num::isInf(rhs[row])) &&
+             (activity.ninfmin == 0 || (activity.ninfmin == 1 && ubInf));
          impubfinite =
-           activity.ninfmax == 0 || (activity.ninfmax == 1 && ubInf);
+             (!Num::isMinusInf(lhs[row])) &&
+             (activity.ninfmax == 0 || (activity.ninfmax == 1 && lbInf));
       }
 
       auto colview = problem.getCol(col);
 
-      if ((Num::greater(impliedlb, lb[col]) && implbfinite) &&
-          (Num::less(impliedub, ub[col]) && impubfinite))
+      if (((impliedlb > lb[col]) && implbfinite) &&
+          ((impliedub < ub[col]) && impubfinite))
       {
-         /*Message::debug(
-           "Propagation changed Bds of col {} from [{}, {}] -> {{}, {}]",
-           col,
-           lb[col],
-           ub[col],
-           impliedlb,
-           impliedub);*/
          // update right and left
-         if (!updateActivities(colview,
-                               lb[col],
-                               impliedlb,
-                               ub[col],
-                               impliedub,
-                               activities,
-                               lhs,
-                               rhs))
-            return false;
+         updateActivities(colview, lb[col], impliedlb, ub[col], impliedub,
+                          activities);
 
          lb[col] = impliedlb;
          ub[col] = impliedub;
          changedCols.push_back(col);
       }
-      else if (Num::greater(impliedlb, lb[col]) && implbfinite)
+      else if ((impliedlb > lb[col]) && implbfinite)
       {
-         /*Message::debug("Propagation changed LB of col {} from {} -> {}",
-                        col,
-                        lb[col],
-                        impliedlb);*/
          // update left
-         if (!updateActivities<ChangedBound::LOWER>(
-               colview, lb[col], impliedlb, activities, lhs, rhs))
-            return false;
+         updateActivities<ChangedBound::LOWER>(colview, lb[col], impliedlb,
+                                               activities);
 
          lb[col] = impliedlb;
          changedCols.push_back(col);
       }
-      else if (Num::less(impliedub, ub[col]) && impubfinite)
+      else if ((impliedub < ub[col]) && impubfinite)
       {
-         /*Message::debug("Propagation changed UB of col {}: {} --> {}",
-                        col,
-                        ub[col],
-                        impliedub);*/
          // update right
-         if (!updateActivities<ChangedBound::UPPER>(
-               colview, ub[col], impliedub, activities, lhs, rhs))
-            return false;
+         updateActivities<ChangedBound::UPPER>(colview, ub[col], impliedub,
+                                               activities);
 
          ub[col] = impliedub;
          changedCols.push_back(col);
@@ -344,50 +262,35 @@ propagateRow(const MIP& problem,
    return true;
 }
 
-// assumes that the lb and ub reftlect the fixing, and the activities are
-// up-to-date
 int
-propagate(const MIP& problem,
-          std::vector<double>& lb,
-          std::vector<double>& ub,
-          std::vector<Activity>& activities,
-          int changedcol)
+propagate(const MIP& mip, std::vector<double>& lb, std::vector<double>& ub,
+          std::vector<Activity>& activities, int changedcol, double oldlb,
+          double oldub)
 {
-   assert(lb[changedcol] == ub[changedcol]);
-
-   int ncols = problem.getNCols();
+   int ncols = mip.getNCols();
 
    std::vector<int> changedCols;
-   // is this a bug?
-   // changedCols.reserve(ncols);
+   changedCols.reserve(ncols);
 
    changedCols.push_back(changedcol);
+
+   updateActivities(mip.getCol(changedcol), oldlb, lb[changedcol], oldub,
+                    lb[changedcol], activities);
 
    for (size_t i = 0; i < changedCols.size(); ++i)
    {
       const int col = changedCols[i];
 
-      auto [colcoefs, colindices, colsize] = problem.getCol(col);
+      auto [colcoefs, colindices, colsize] = mip.getCol(col);
 
       for (int j = 0; j < colsize; ++j)
       {
          const int row = colindices[j];
 
          // propagate row
-         if (!propagateRow(problem, row, activities, lb, ub, changedCols))
+         if (!propagateRow(mip, row, activities, lb, ub, changedCols))
             return 0;
       }
-
-      if (changedCols.size() >= static_cast<size_t>(ncols))
-      {
-         int newsize = static_cast<int>(changedCols.size()) - (i + 1);
-         assert(newsize >= 0);
-
-         std::memmove(changedCols.data(), changedCols.data() + i + 1, newsize);
-         changedCols.resize(newsize);
-         i = 0;
-      }
    }
-
    return 1;
 }

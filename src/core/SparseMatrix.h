@@ -8,13 +8,11 @@
 
 struct SparseMatrix
 {
-   SparseMatrix() {}
+   SparseMatrix() = default;
 
-   SparseMatrix(int, int);
+   SparseMatrix(SparseMatrix&&) noexcept;
 
-   SparseMatrix(SparseMatrix&&);
-
-   SparseMatrix& operator=(SparseMatrix&&);
+   SparseMatrix& operator=(SparseMatrix&&) noexcept;
 
    int ncols;
    int nrows;

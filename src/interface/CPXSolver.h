@@ -22,6 +22,11 @@ class CPXSolver : public LPSolver
 
    virtual void branch(int column, double val, Direction direction) override;
 
+   virtual void changeBounds(int column, double lb, double ub) override;
+
+   virtual void changeBounds(const std::vector<double>&,
+                             const std::vector<double>&) override;
+
    private:
    IloEnv env;
    IloModel model;

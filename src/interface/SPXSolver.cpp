@@ -87,6 +87,8 @@ SPXSolver::solve()
 
       result.obj = mysoplex.objValueReal();
    }
+   else if (stat == SPxSolver::INFEASIBLE)
+      result.status = LPResult::INFEASIBLE;
    else
       result.status = LPResult::OTHER;
 
@@ -111,6 +113,30 @@ SPXSolver::branch(int col, double val, Direction direction)
       mysoplex.addRowReal(LPRow(val, vector, infinity));
    else
       mysoplex.addRowReal(LPRow(-infinity, vector, val));
+}
+
+void
+SPXSolver::changeBounds(int column, double lb, double ub)
+{
+   mysoplex.changeBoundsReal(column, lb, ub);
+}
+
+void
+SPXSolver::changeBounds(const std::vector<double>& lb,
+                        const std::vector<double>& ub)
+{
+   using namespace soplex;
+
+   DVector soplb(ncols);
+   DVector sopub(ncols);
+
+   for (int i = 0; i < ncols; ++i)
+   {
+      soplb[i] = lb[i];
+      sopub[i] = ub[i];
+   }
+
+   mysoplex.changeBoundsReal(soplb, sopub);
 }
 
 SPXSolver::~SPXSolver() {}

@@ -1,0 +1,10 @@
+Language:        Cpp
+UseTab: Never
+IndentWidth: 3
+BreakBeforeBraces: Allman
+AllowShortIfStatementsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: Yes
+ColumnLimit: 75
+AlwaysBreakAfterReturnType: TopLevel
+PointerAlignment: Left

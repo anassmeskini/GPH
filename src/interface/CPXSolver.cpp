@@ -137,6 +137,28 @@ CPXSolver::branch(int column, double val, Direction direction)
       model.add(IloConstraint(-inf <= rowExpr <= val));
 }
 
+void
+CPXSolver::changeBounds(int column, double lb, double ub)
+{
+   variables[column].setBounds(lb, ub);
+}
+
+void
+CPXSolver::changeBounds(const std::vector<double>& lb,
+                        const std::vector<double>& ub)
+{
+   IloNumArray ilolb(env, ncols);
+   IloNumArray iloub(env, ncols);
+
+   for (int i = 0; i < ncols; ++i)
+   {
+      ilolb[i] = lb[i];
+      iloub[i] = ub[i];
+   }
+
+   variables.setBounds(ilolb, iloub);
+}
+
 CPXSolver::~CPXSolver()
 {
    if (deleteEnv)

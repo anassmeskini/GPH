@@ -58,11 +58,6 @@ else()
    message(FATAL_ERROR "LP solver NOT found")
 endif()
 
-find_package(ZLIB)
-if(NOT ZLIB_FOUND)
-   message(FATAL_ERROR "ZLIB not found")
-endif()
-
 include_directories(${PROJECT_SOURCE_DIR}/src
                     ${PROJECT_SOURCE_DIR}/external 
                     SYSTEM

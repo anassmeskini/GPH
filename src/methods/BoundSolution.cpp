@@ -4,152 +4,150 @@
 #include "core/Propagation.h"
 #include "io/Message.h"
 
-// TODO remove slacks
-// TODO reorder variables
+// TODO fix binary first
 
-std::optional<Solution>
-BoundSolution::search(const MIP& mip,
-                      const std::vector<double>& lb,
+void
+BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
                       const std::vector<double>& ub,
                       const std::vector<Activity>& activities,
-                      const LPResult&,
-                      const std::vector<double>&,
+                      const LPResult&, const std::vector<double>&,
                       const std::vector<int>&,
-                      std::shared_ptr<LPSolver>)
+                      std::shared_ptr<const LPSolver> solver,
+                      SolutionPool& pool)
 {
-   int nrows = mip.getNRows();
-   const auto& lhs = mip.getLHS();
-   const auto& rhs = mip.getRHS();
+   int ncols = mip.getNCols();
+   const auto& integer = mip.getInteger();
    const auto& objective = mip.getObj();
 
-   double cost = 0.0;
+   std::unique_ptr<LPSolver> localsolver;
 
-   // copies
-   auto activities_copy = activities;
-   std::vector<double> solActivity(nrows, 0.0);
+   // try solution = lower bound
+   auto local_activities = activities;
+   auto locallb = lb;
+   auto localub = ub;
+   bool feasible = true;
 
-   auto lbcopy = lb;
-   auto ubcopy = ub;
-
-   bool lbsolfeasible = true;
-   // try solution = lb
-   for (int row = 0; row < nrows && lbsolfeasible; ++row)
+   std::vector<int> inflbIntVars;
+   for (int col = 0; col < ncols; ++col)
    {
-      auto [rowcoefs, rowindices, rowsize] = mip.getRow(row);
-
-      for (int colid = 0; colid < rowsize; ++colid)
+      if (integer[col] && locallb[col] != localub[col])
       {
-         int col = rowindices[colid];
-         double coef = rowcoefs[colid];
-
-         if (lbcopy[col] != ub[col])
+         if (Num::isMinusInf(locallb[col]))
          {
-            bool feasible =
-              updateActivities<ChangedBound::UPPER>(mip.getCol(col),
-                                                    ubcopy[col],
-                                                    lbcopy[col],
-                                                    activities_copy,
-                                                    lhs,
-                                                    rhs);
-
-            ubcopy[col] = lbcopy[col];
-
-            if (!feasible)
-            {
-               Message::debug("unfeasible", row, nrows);
-            }
-
-            if (!propagate(mip, lbcopy, ubcopy, activities_copy, col))
-            {
-               Message::debug("propagation failed!", row, nrows);
-               lbsolfeasible = false;
-               break;
-            }
+            inflbIntVars.push_back(col);
+            continue;
          }
 
-         solActivity[row] += lbcopy[col] * coef;
-      }
+         double oldub = localub[col];
+         localub[col] = locallb[col];
 
-      if (Num::greater(solActivity[row], rhs[row]) ||
-          Num::less(solActivity[row], lhs[row]))
-      {
-         Message::debug("LB sol infeasible, row {} ,nrows {}", row, nrows);
-         lbsolfeasible = false;
-         break;
-      }
-   }
-
-   if (lbsolfeasible)
-   {
-      for (size_t i = 0; i < objective.size(); ++i)
-         cost += objective[i] * lbcopy[i];
-
-      Message::print("lb sol feasible, obj: {}", cost);
-   }
-
-   // ub solution
-   activities_copy = activities;
-
-   solActivity = std::vector<double>(nrows, 0.0);
-
-   lbcopy = lb;
-   ubcopy = ub;
-
-   bool ubsolfeasible = true;
-   for (int row = 0; row < nrows && ubsolfeasible; ++row)
-   {
-      auto [rowcoefs, rowindices, rowsize] = mip.getRow(row);
-
-      for (int colid = 0; colid < rowsize; ++colid)
-      {
-         int col = rowindices[colid];
-         double coef = rowcoefs[colid];
-
-         if (lbcopy[col] != ub[col])
+         if (!propagate(mip, locallb, localub, local_activities, col,
+                        oldub, locallb[col]))
          {
-            bool feasible =
-              updateActivities<ChangedBound::LOWER>(mip.getCol(col),
-                                                    lbcopy[col],
-                                                    ubcopy[col],
-                                                    activities_copy,
-                                                    lhs,
-                                                    rhs);
+            feasible = false;
+            break;
+         }
+      }
+   }
 
-            lbcopy[col] = ubcopy[col];
+   // TODO deal with inf lb
+   assert(!inflbIntVars.size());
 
-            if (!feasible)
-            {
-               Message::debug("unfeasible", row, nrows);
-            }
+   if (feasible)
+   {
+      if (mip.getStatistics().ncont == 0)
+      {
+         Message::debug("Bnd: lb sol feasible");
 
-            if (!propagate(mip, lbcopy, ubcopy, activities_copy, col))
-            {
-               Message::debug("propagation failed!", row, nrows);
-               ubsolfeasible = false;
-               break;
-            }
+         // TODO compute the objective while fixing
+         double obj = 0.0;
+         for (int i = 0; i < ncols; ++i)
+            obj += objective[i] * locallb[i];
+
+         pool.add(std::move(locallb), obj);
+      }
+      else
+      {
+         Message::debug("Bnd: solving local lp");
+
+         if (!localsolver)
+            localsolver = solver->clone();
+         localsolver->changeBounds(locallb, localub);
+
+         auto localresult = localsolver->solve();
+         if (localresult.status == LPResult::OPTIMAL)
+         {
+            Message::debug("Bnd: lb: lp feasible");
+            pool.add(std::move(localresult.primalSolution),
+                     localresult.obj);
+         }
+         else if (localresult.status == LPResult::INFEASIBLE)
+            Message::debug("Bnd: lb: lp infeasible");
+      }
+   }
+
+   // try solution = upper bound
+   local_activities = activities;
+   locallb = lb;
+   localub = ub;
+   feasible = true;
+
+   std::vector<int> infubIntVars;
+   for (int col = 0; col < ncols; ++col)
+   {
+      if (integer[col] && locallb[col] != ub[col])
+      {
+         if (Num::isInf(localub[col]))
+         {
+            infubIntVars.push_back(col);
+            continue;
          }
 
-         solActivity[row] += ubcopy[col] * coef;
-      }
+         double oldlb = locallb[col];
+         locallb[col] = localub[col];
 
-      if (Num::greater(solActivity[row], rhs[row]) ||
-          Num::less(solActivity[row], lhs[row]))
-      {
-         Message::debug("UB sol infeasible, row {} ,nrows {}", row, nrows);
-         ubsolfeasible = false;
-         break;
+         if (!propagate(mip, locallb, localub, local_activities, col,
+                        oldlb, localub[col]))
+         {
+            feasible = false;
+            break;
+         }
       }
    }
 
-   if (ubsolfeasible)
+   // TODO deal with inf ub
+   assert(!infubIntVars.size());
+
+   if (feasible)
    {
-      cost = 0.0;
-      for (size_t i = 0; i < objective.size(); ++i)
-         cost += objective[i] * ubcopy[i];
+      if (mip.getStatistics().ncont == 0)
+      {
+         Message::debug("Bnd: ub sol feasible");
+         double obj = 0.0;
 
-      Message::print("ub sol feasible, obj: {}", cost);
+         for (int i = 0; i < ncols; ++i)
+            obj += objective[i] * locallb[i];
+
+         pool.add(std::move(locallb), obj);
+      }
+      else
+      {
+         Message::debug("Bnd: ub: solving local lp");
+
+         if (!localsolver)
+            localsolver = solver->clone();
+         localsolver->changeBounds(locallb, localub);
+
+         auto localresult = localsolver->solve();
+         if (localresult.status == LPResult::OPTIMAL)
+         {
+            Message::debug("Bnd: ub: lp feasible, obj {:0.2e}",
+                           localresult.obj);
+            pool.add(std::move(localresult.primalSolution),
+                     localresult.obj);
+         }
+         else if (localresult.status == LPResult::INFEASIBLE)
+            Message::debug("Bnd: ub: lp infeasible");
+      }
    }
-
-   return {};
 }

@@ -1,10 +1,10 @@
-#ifndef MINLOCK2_HPP
-#define MINLOCK2_HPP
+#ifndef SHIFTING_HPP
+#define SHIFTING_HPP
 #include "core/Heuristic.h"
 
 #include <vector>
 
-class MinLockRounding : public HeuristicMethod
+class Shifting : public HeuristicMethod
 {
    public:
    virtual void search(const MIP&,
@@ -17,7 +17,7 @@ class MinLockRounding : public HeuristicMethod
                        std::shared_ptr<const LPSolver>,
                        SolutionPool&) override;
 
-   virtual ~MinLockRounding() = default;
+   virtual ~Shifting() = default;
 };
 
 #endif
