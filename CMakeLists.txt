@@ -13,14 +13,27 @@ file(GLOB SOURCES "src/main.cpp"
 
 add_executable(lps ${SOURCES})
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif()
-
+#compiler flags
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Tsan")
+   set(CMAKE_BUILD_TYPE "Debug")
+   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=thread")
+   set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=thread")
+   set(ENV{TSAN_OPTIONS} "suppressions=${CMAKE_SOURCE_DIR}/.sanitizer_suppresion_file")
+elseif(CMAKE_BUILD_TYPE STREQUAL "Asan")
+   set(CMAKE_BUILD_TYPE "Debug")
+   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=adress")
+   set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=adress")
+endif()
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# dependencies
 find_package(TBB REQUIRED tbb)
 
 #use the header only version of fmtlib
@@ -63,13 +76,9 @@ include_directories(${PROJECT_SOURCE_DIR}/src
                     SYSTEM
                     ${TBB_INCLUDE_DIRS}
                     ${Boost_INCLUDE_DIRS} 
-                    ${LPSOLVER_INCLUDE_DIRS}
-                    ${ZLIB_INCLUDE_LIBRARIES})
+                    ${LPSOLVER_INCLUDE_DIRS})
 
 target_link_libraries(lps PRIVATE 
                       ${Boost_LIBRARIES}
                       ${TBB_IMPORTED_TARGETS}
-                      ${LPSOLVER_LIBRARIES}
-                      ${ZLIB_LIBRARIES})
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+                      ${LPSOLVER_LIBRARIES})

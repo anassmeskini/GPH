@@ -2,15 +2,13 @@
 #include "core/Common.h"
 #include <iostream>
 
+#include "io/Message.h"
+
 #ifdef CONCERT_CPLEX_FOUND
 
 CPXSolver::CPXSolver(const MIP& mip)
-  : model(env)
-  , variables(env)
-  , constraints(env)
-  , deleteEnv(true)
-  , ncols(mip.getNCols())
-  , nrows(mip.getNRows())
+    : model(env), variables(env), constraints(env), ncols(mip.getNCols()),
+      nrows(mip.getNRows())
 {
    IloNumExpr objExpr(env);
 
@@ -28,7 +26,8 @@ CPXSolver::CPXSolver(const MIP& mip)
       assert(static_cast<size_t>(var) < varNames.size());
       assert(static_cast<size_t>(var) < obj.size());
 
-      variables.add(IloNumVar(env, lb[var], ub[var], varNames[var].c_str()));
+      variables.add(
+          IloNumVar(env, lb[var], ub[var], varNames[var].c_str()));
       objExpr += variables[var] * obj[var];
    }
 
@@ -60,18 +59,16 @@ CPXSolver::CPXSolver(const MIP& mip)
 }
 
 CPXSolver::CPXSolver(const CPXSolver& cpxsolver)
-  : env(cpxsolver.model.getEnv())
-  , model(env)
-  , variables(env)
-  , constraints(env)
-  , cplex(env)
-  , deleteEnv(false)
-  , ncols(cpxsolver.ncols)
-  , nrows(cpxsolver.nrows)
+    : env(), model(env), variables(env), constraints(env), cplex(env),
+      ncols(cpxsolver.ncols), nrows(cpxsolver.nrows)
 {
-   model = cpxsolver.model;
-   variables = cpxsolver.variables;
-   constraints = cpxsolver.constraints;
+   model = cpxsolver.model.getClone(env);
+   for (IloIterator<IloNumVar> it(env); it.ok(); ++it)
+      variables.add(*it);
+
+   for (IloIterator<IloRange> it(env); it.ok(); ++it)
+      constraints.add(*it);
+
    cplex.extract(model);
 }
 
@@ -125,22 +122,11 @@ CPXSolver::makeCopy() const
 }
 
 void
-CPXSolver::branch(int column, double val, Direction direction)
-{
-   IloNumExpr rowExpr(env);
-   rowExpr += 1.0 * variables[column];
-
-   constexpr double inf = std::numeric_limits<double>::infinity();
-   if (direction == Direction::UP)
-      model.add(IloConstraint(val <= rowExpr <= inf));
-   else
-      model.add(IloConstraint(-inf <= rowExpr <= val));
-}
-
-void
 CPXSolver::changeBounds(int column, double lb, double ub)
 {
    variables[column].setBounds(lb, ub);
+   assert(variables[column].getLb() == lb);
+   assert(variables[column].getUb() == ub);
 }
 
 void
@@ -159,10 +145,6 @@ CPXSolver::changeBounds(const std::vector<double>& lb,
    variables.setBounds(ilolb, iloub);
 }
 
-CPXSolver::~CPXSolver()
-{
-   if (deleteEnv)
-      env.end();
-}
+CPXSolver::~CPXSolver() { env.end(); }
 
 #endif

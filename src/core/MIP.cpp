@@ -6,12 +6,12 @@
 #include <algorithm>
 #include <numeric>
 
-MIP::MIP(const Rows &rows, const Cols &cols, std::vector<double> &&coefsT,
-         std::vector<int> &&idxT, std::vector<int> &&rstartT,
-         std::vector<double> &&_rhs, std::vector<double> &&_lhs,
-         std::vector<double> &&_lbs, std::vector<double> &&_ubs,
-         std::vector<double> &&_obj, dynamic_bitset<> &&_integer,
-         std::vector<int> &rowSize, std::vector<std::string> &&_varNames)
+MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
+         std::vector<int>&& idxT, std::vector<int>&& rstartT,
+         std::vector<double>&& _rhs, std::vector<double>&& _lhs,
+         std::vector<double>&& _lbs, std::vector<double>&& _ubs,
+         std::vector<double>&& _obj, dynamic_bitset<>&& _integer,
+         std::vector<int>& rowSize, std::vector<std::string>&& _varNames)
 {
    int ncols = cols.size();
    int nrows = rows.size();
@@ -34,8 +34,9 @@ MIP::MIP(const Rows &rows, const Cols &cols, std::vector<double> &&coefsT,
    objective = std::move(_obj);
 
    // now before moving the transposed matrix, we remove
-   // slack variables (non-integer unit columns), and remember these changes
-   // to adjust the objective after we have access to the row-major matrix
+   // slack variables (non-integer unit columns), and remember these
+   // changes to adjust the objective after we have access to the row-major
+   // matrix
 
    // first: slack's row, second: removed col,
    // third: slack's coefficient in the row
@@ -57,8 +58,8 @@ MIP::MIP(const Rows &rows, const Cols &cols, std::vector<double> &&coefsT,
 
          assert(slack_coef != 0.0);
 
-         double *coefs = coefsT.data() + offset;
-         int *indices = idxT.data() + offset;
+         double* coefs = coefsT.data() + offset;
+         int* indices = idxT.data() + offset;
          int nnz = coefsT.size();
 
          if (lhs[row] == rhs[row])
@@ -168,7 +169,7 @@ MIP::MIP(const Rows &rows, const Cols &cols, std::vector<double> &&coefsT,
 
    // move constraint names
    consNames.resize(nrows);
-   for (auto &elem : rows)
+   for (auto& elem : rows)
    {
       int row = elem.second.second;
       consNames[row] = std::move(elem.first);
@@ -256,7 +257,8 @@ MIP::MIP(const Rows &rows, const Cols &cols, std::vector<double> &&coefsT,
    stats.avgColSupport /= ncols;
 }
 
-MIP &MIP::operator=(MIP &&other) noexcept
+MIP&
+MIP::operator=(MIP&& other) noexcept
 {
    objective = std::move(other.objective);
 
@@ -282,8 +284,8 @@ MIP &MIP::operator=(MIP &&other) noexcept
    return *this;
 }
 
-SparseMatrix MIP::transpose(const SparseMatrix &matrix,
-                            const std::vector<int> &rowSize)
+SparseMatrix
+MIP::transpose(const SparseMatrix& matrix, const std::vector<int>& rowSize)
 {
    int nnz = matrix.coefficients.size();
    int ncols = matrix.nrows;
@@ -291,7 +293,8 @@ SparseMatrix MIP::transpose(const SparseMatrix &matrix,
 
    assert(matrix.rowStart.size() == static_cast<size_t>(matrix.nrows + 1));
    assert(std::accumulate(rowSize.begin(), rowSize.end(), 0) == nnz);
-   assert(std::all_of(matrix.coefficients.begin(), matrix.coefficients.end(),
+   assert(std::all_of(matrix.coefficients.begin(),
+                      matrix.coefficients.end(),
                       [](double coef) { return coef != 0.0; }));
 
    SparseMatrix transposed;
@@ -300,7 +303,7 @@ SparseMatrix MIP::transpose(const SparseMatrix &matrix,
    transposed.coefficients.resize(nnz);
    transposed.indices.resize(nnz);
 
-   auto &rowStart = transposed.rowStart;
+   auto& rowStart = transposed.rowStart;
    rowStart.reserve(nrows + 1);
    rowStart.push_back(0);
 
@@ -311,8 +314,8 @@ SparseMatrix MIP::transpose(const SparseMatrix &matrix,
 
    for (int col = 0; col < ncols; ++col)
    {
-      for (int rowid = matrix.rowStart[col]; rowid < matrix.rowStart[col + 1];
-           ++rowid)
+      for (int rowid = matrix.rowStart[col];
+           rowid < matrix.rowStart[col + 1]; ++rowid)
       {
          int row = matrix.indices[rowid];
          double coef = matrix.coefficients[rowid];
@@ -333,68 +336,78 @@ SparseMatrix MIP::transpose(const SparseMatrix &matrix,
    return transposed;
 }
 
-VectorView MIP::getRow(int row) const noexcept
+VectorView
+MIP::getRow(int row) const noexcept
 {
-   const double *coefBegin =
+   const double* coefBegin =
        constMatrix.coefficients.data() + constMatrix.rowStart[row];
-   const int *indBegin = constMatrix.indices.data() + constMatrix.rowStart[row];
-   const int size = constMatrix.rowStart[row + 1] - constMatrix.rowStart[row];
+   const int* indBegin =
+       constMatrix.indices.data() + constMatrix.rowStart[row];
+   const int size =
+       constMatrix.rowStart[row + 1] - constMatrix.rowStart[row];
 
    return {coefBegin, indBegin, size};
 }
 
-VectorView MIP::getCol(int col) const noexcept
+VectorView
+MIP::getCol(int col) const noexcept
 {
-   const double *coefBegin =
+   const double* coefBegin =
        constMatrixT.coefficients.data() + constMatrixT.rowStart[col];
-   const int *indBegin =
+   const int* indBegin =
        constMatrixT.indices.data() + constMatrixT.rowStart[col];
-   const int size = constMatrixT.rowStart[col + 1] - constMatrixT.rowStart[col];
+   const int size =
+       constMatrixT.rowStart[col + 1] - constMatrixT.rowStart[col];
 
    return {coefBegin, indBegin, size};
 }
 
-int MIP::getRowSize(int row) const noexcept
+int
+MIP::getRowSize(int row) const noexcept
 {
    return constMatrix.rowStart[row + 1] - constMatrix.rowStart[row];
 }
 
-int MIP::getColSize(int col) const noexcept
+int
+MIP::getColSize(int col) const noexcept
 {
    return constMatrixT.rowStart[col + 1] - constMatrixT.rowStart[col];
 }
 
-void printStats(Statistics st)
+void
+printStats(Statistics st)
 {
    int ncols = st.ncols;
    int nrows = st.nrows;
 
    Message::print("\n==Statistics==");
 
-   int percbin = 100.0 * (static_cast<double>(st.nbin) / ncols);
-   int percint = 100.0 * (static_cast<double>(st.nint) / ncols);
-   int perccont = 100.0 * (static_cast<double>(st.ncont) / ncols);
+   float percbin = 100.0 * (static_cast<double>(st.nbin) / ncols);
+   float percint = 100.0 * (static_cast<double>(st.nint) / ncols);
+   float perccont = 100.0 * (static_cast<double>(st.ncont) / ncols);
    Message::print("Columns: {}", st.ncols);
-   Message::print("\tbin: {} ({}%)\n\tint: {} ({}%)\n\tcont: {} ({}%)", st.nbin,
-                  percbin, st.nint, percint, st.ncont, perccont);
+   Message::print(
+       "\tbin: {} ({:0.1f}%)\n\tint: {} ({:0.1f}%)\n\tcont: {} ({:0.1f}%)",
+       st.nbin, percbin, st.nint, percint, st.ncont, perccont);
 
    Message::print("\tavg support: {}\n\tmin support: {}\n\tmax support: "
                   "{}\n\tmin locks: {}\n\tmax locks: {}",
                   st.avgColSupport, st.minColSupport, st.maxColSupport,
                   st.minLocks, st.maxLocks);
 
-   int perceq = 100.0 * (static_cast<double>(st.nequality) / nrows);
+   float perceq = 100.0 * (static_cast<double>(st.nequality) / nrows);
    Message::print("Rows: {}", st.nrows);
-   Message::print("\tneq: {} ({}%)\n\tavg support: {}\n\tmin support"
+   Message::print("\tneq: {} ({:0.1f}%)\n\tavg support: {}\n\tmin support"
                   ": {}\n\tmax support {}",
                   st.nequality, perceq, st.avgRowSupport, st.minRowSupport,
                   st.maxRowSupport);
 
-   double percmatnnz =
+   float percmatnnz =
        100.0 * (static_cast<double>(st.nnzmat) / (ncols * nrows));
-   double percobjnnz = 100.0 * (static_cast<double>(st.nnzobj) / ncols);
+   float percobjnnz = 100.0 * (static_cast<double>(st.nnzobj) / ncols);
    Message::print("Coefficients:");
-   Message::print("\tmatrix nnz: {} ({:0.2f}%)\n\tobjective nnz: {} ({:0.2f}%)",
-                  st.nnzmat, percmatnnz, st.nnzobj, percobjnnz);
+   Message::print(
+       "\tmatrix nnz: {} ({:0.1f}%)\n\tobjective nnz: {} ({:0.1f}%)",
+       st.nnzmat, percmatnnz, st.nnzobj, percobjnnz);
    Message::print("");
 }

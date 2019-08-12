@@ -4,20 +4,18 @@
 
 #include <vector>
 
-class BoundSolution : public HeuristicMethod
+class BoundSolution final : public HeuristicMethod
 {
-   public:
-   virtual void search(const MIP&,
-                       const std::vector<double>&,
-                       const std::vector<double>&,
-                       const std::vector<Activity>&,
-                       const LPResult&,
-                       const std::vector<double>&,
-                       const std::vector<int>&,
-                       std::shared_ptr<const LPSolver>,
-                       SolutionPool&) override;
+ public:
+   BoundSolution() : HeuristicMethod("BoundSolution") {}
 
-   virtual ~BoundSolution() = default;
+   void search(const MIP&, const std::vector<double>&,
+               const std::vector<double>&, const std::vector<Activity>&,
+               const LPResult&, const std::vector<double>&,
+               const std::vector<int>&, std::shared_ptr<const LPSolver>,
+               SolutionPool&) override;
+
+   ~BoundSolution() override = default;
 };
 
 #endif

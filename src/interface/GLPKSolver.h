@@ -9,25 +9,28 @@
 
 class GLPKSolver : public LPSolver
 {
-   public:
+ public:
    GLPKSolver(const MIP&);
 
    GLPKSolver(const GLPKSolver&);
 
-   virtual ~GLPKSolver() override;
+   ~GLPKSolver() override;
 
-   virtual LPResult solve() override;
+   LPResult solve() override;
 
-   virtual std::unique_ptr<LPSolver> makeCopy() const override;
+   std::unique_ptr<LPSolver> makeCopy() const override;
 
-   virtual void branch(int column, double val, Direction direction) override;
+   void changeBounds(int column, double lb, double ub) override;
+   :q!
 
-   virtual void changeBounds(int column, double lb, double ub) override;
+:q!
+:visual
+visual
 
-   virtual void changeBounds(const std::vector<double>&,
-                             const std::vector<double>&) override;
+   void changeBounds(const std::vector<double>&,
+                     const std::vector<double>&) override;
 
-   private:
+ private:
    glp_prob* problem;
 
    int ncols;

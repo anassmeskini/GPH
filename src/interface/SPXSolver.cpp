@@ -4,8 +4,7 @@
 #ifdef SOPLEX_FOUND
 
 SPXSolver::SPXSolver(const MIP& mip)
-  : ncols(mip.getNCols())
-  , nrows(mip.getNRows())
+    : ncols(mip.getNCols()), nrows(mip.getNRows())
 {
    using namespace soplex;
 
@@ -54,9 +53,8 @@ SPXSolver::SPXSolver(const MIP& mip)
 }
 
 SPXSolver::SPXSolver(const SPXSolver& spxsolver)
-  : mysoplex(spxsolver.mysoplex)
-  , ncols(spxsolver.ncols)
-  , nrows(spxsolver.nrows)
+    : mysoplex(spxsolver.mysoplex), ncols(spxsolver.ncols),
+      nrows(spxsolver.nrows)
 {
 }
 
@@ -102,20 +100,6 @@ SPXSolver::makeCopy() const
 }
 
 void
-SPXSolver::branch(int col, double val, Direction direction)
-{
-   using namespace soplex;
-
-   DSVector vector(1);
-   vector.add(col, 1.0);
-
-   if (direction == Direction::UP)
-      mysoplex.addRowReal(LPRow(val, vector, infinity));
-   else
-      mysoplex.addRowReal(LPRow(-infinity, vector, val));
-}
-
-void
 SPXSolver::changeBounds(int column, double lb, double ub)
 {
    mysoplex.changeBoundsReal(column, lb, ub);
@@ -138,7 +122,5 @@ SPXSolver::changeBounds(const std::vector<double>& lb,
 
    mysoplex.changeBoundsReal(soplb, sopub);
 }
-
-SPXSolver::~SPXSolver() {}
 
 #endif

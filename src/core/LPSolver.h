@@ -33,25 +33,25 @@ enum class Direction
 
 class LPSolver
 {
-   public:
+ public:
+   LPSolver() = default;
+
    virtual ~LPSolver() = default;
 
    virtual LPResult solve() = 0;
 
    std::unique_ptr<LPSolver> clone() const
    {
-      std::lock_guard guard(copyLock);
+      std::unique_lock guard(copyLock);
       return makeCopy();
    }
-
-   virtual void branch(int column, double val, Direction direction) = 0;
 
    virtual void changeBounds(int column, double lb, double ub) = 0;
 
    virtual void changeBounds(const std::vector<double>&,
                              const std::vector<double>&) = 0;
 
-   private:
+ private:
    virtual std::unique_ptr<LPSolver> makeCopy() const = 0;
 
    mutable tbb::mutex copyLock;

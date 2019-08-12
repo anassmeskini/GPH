@@ -16,7 +16,7 @@ Search::Search(std::initializer_list<HeuristicMethod*> list)
    for (auto handle : list)
       heuristics.emplace_back(handle);
 
-   runtime.resize(heuristics.size(), 0.0);
+   heuristics_solutions.resize(heuristics.size() + 1);
 }
 
 void
@@ -57,39 +57,60 @@ Search::run(const MIP& mip)
       auto& sol = optSol.value();
       Message::print("Root lp can be rounded, obj {}", sol.second);
 
-      SOLFormat::write("rounded_lp.sol", sol.first, mip.getVarNames());
-      pool.add(std::move(sol.first), sol.second);
+      heuristics_solutions.back().add(std::move(sol.first), sol.second);
    }
 
    auto run = [&](tbb::blocked_range<size_t>& range) -> void {
       for (size_t i = range.begin(); i != range.end(); ++i)
-         heuristics[i]->search(mip, mip.getLB(), mip.getUB(), activities,
-                               result, lpSolAct, fractional, lpSolver,
-                               pool);
+         heuristics[i]->execute(mip, mip.getLB(), mip.getUB(), activities,
+                                result, lpSolAct, fractional, lpSolver,
+                                heuristics_solutions[i]);
    };
 
    tbb::parallel_for(tbb::blocked_range<size_t>{0, heuristics.size()},
                      std::move(run));
    auto tend = Timer::now();
 
-   // TODO
-   if (pool.pool.size())
+   double min_cost = std::numeric_limits<double>::max();
+   std::pair<int, int> min_cost_sol{-1, -1};
+   int nsol = 0;
+   for (size_t i = 0; i < heuristics_solutions.size(); ++i)
    {
-      double mincost = pool.pool[0].objective;
-      for (size_t i = 1; i < pool.pool.size(); ++i)
-         mincost = std::min(mincost, pool.pool[i].objective);
+      nsol += heuristics_solutions[i].size();
 
-      double gap = 100.0 * std::fabs(mincost - result.obj) /
-                   (std::fabs(mincost) + 1e-6);
+      for (size_t j = 0; j < heuristics_solutions[i].size(); ++j)
+      {
+         if (heuristics_solutions[i][j].second < min_cost)
+         {
+            min_cost = heuristics_solutions[i][j].second;
+            min_cost_sol = {i, j};
+         }
+      }
+   }
+
+   if (min_cost_sol != std::make_pair(-1, -1))
+   {
+      assert(min_cost_sol.first != -1 && min_cost_sol.second != -1);
+
+      double gap = 100.0 * std::fabs(min_cost - result.obj) /
+                   (std::fabs(min_cost) + 1e-6);
 
       if (gap < 999.9)
          Message::print(
-             "Found {} solutions | gap {:0.2f}% after {:0.2} sec.",
-             pool.pool.size(), gap, Timer::seconds(tend, t0));
+             "Found {} solutions | gap {:0.2f}% after {:0.2} sec.", nsol,
+             gap, Timer::seconds(tend, t0));
       else
          Message::print("Found {} solutions | gap --- after {:0.2} sec.",
-                        pool.pool.size(), Timer::seconds(tend, t0));
+                        nsol, Timer::seconds(tend, t0));
    }
    else
       Message::print("No solution found");
+
+   Message::print("Summary:");
+   Message::print("\tRoot: found {} solutions",
+                  heuristics_solutions.back().size());
+   for (size_t i = 0; i < heuristics.size(); ++i)
+      Message::print("\t{}: {:0.1f} sec. found {} solutions",
+                     heuristics[i]->getName(), heuristics[i]->getRunTime(),
+                     heuristics_solutions[i].size());
 }

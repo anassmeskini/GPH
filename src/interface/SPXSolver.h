@@ -7,25 +7,23 @@
 
 class SPXSolver : public LPSolver
 {
-   public:
+ public:
    SPXSolver(const MIP&);
 
    SPXSolver(const SPXSolver&);
 
-   virtual ~SPXSolver() override;
+   ~SPXSolver() override = default;
 
-   virtual LPResult solve() override;
+   LPResult solve() override;
 
-   virtual std::unique_ptr<LPSolver> makeCopy() const override;
+   std::unique_ptr<LPSolver> makeCopy() const override;
 
-   virtual void branch(int column, double val, Direction direction) override;
+   void changeBounds(int column, double lb, double ub) override;
 
-   virtual void changeBounds(int column, double lb, double ub) override;
+   void changeBounds(const std::vector<double>&,
+                     const std::vector<double>&) override;
 
-   virtual void changeBounds(const std::vector<double>&,
-                             const std::vector<double>&) override;
-
-   private:
+ private:
    soplex::SoPlex mysoplex;
    int ncols;
    int nrows;

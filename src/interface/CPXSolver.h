@@ -9,31 +9,28 @@
 
 class CPXSolver : public LPSolver
 {
-   public:
+ public:
    CPXSolver(const MIP&);
 
    CPXSolver(const CPXSolver&);
 
    ~CPXSolver() override;
 
-   virtual LPResult solve() override;
+   LPResult solve() override;
 
-   virtual std::unique_ptr<LPSolver> makeCopy() const override;
+   std::unique_ptr<LPSolver> makeCopy() const override;
 
-   virtual void branch(int column, double val, Direction direction) override;
+   void changeBounds(int column, double lb, double ub) override;
 
-   virtual void changeBounds(int column, double lb, double ub) override;
+   void changeBounds(const std::vector<double>&,
+                     const std::vector<double>&) override;
 
-   virtual void changeBounds(const std::vector<double>&,
-                             const std::vector<double>&) override;
-
-   private:
+ private:
    IloEnv env;
    IloModel model;
    IloNumVarArray variables;
    IloRangeArray constraints;
    IloCplex cplex;
-   bool deleteEnv;
 
    int ncols;
    int nrows;

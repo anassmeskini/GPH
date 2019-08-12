@@ -5,9 +5,7 @@
 
 #ifdef GLPK_FOUND
 GLPKSolver::GLPKSolver(const MIP& mip)
-  : problem(nullptr)
-  , ncols(mip.getNCols())
-  , nrows(mip.getNRows())
+    : problem(nullptr), ncols(mip.getNCols()), nrows(mip.getNRows())
 {
    const auto& lb = mip.getLB();
    const auto& ub = mip.getUB();
@@ -65,16 +63,11 @@ GLPKSolver::GLPKSolver(const MIP& mip)
       // set coefficients
       auto rowview = mip.getRow(row);
 
-      std::transform(rowview.indices,
-                     rowview.indices + rowview.size,
-                     ind_buffer.begin(),
-                     [&](int id) { return ++id; });
+      std::transform(rowview.indices, rowview.indices + rowview.size,
+                     ind_buffer.begin(), [&](int id) { return ++id; });
 
-      glp_set_mat_row(problem,
-                      row + 1,
-                      rowview.size,
-                      ind_buffer.data() - 1,
-                      rowview.coefs - 1);
+      glp_set_mat_row(problem, row + 1, rowview.size,
+                      ind_buffer.data() - 1, rowview.coefs - 1);
    }
 }
 
@@ -89,27 +82,27 @@ GLPKSolver::solve()
       int st = glp_get_status(problem);
       switch (st)
       {
-         case GLP_OPT:
-            result.status = LPResult::OPTIMAL;
-            result.primalSolution.resize(ncols);
-            for (int i = 0; i < ncols; ++i)
-               result.primalSolution[i] = glp_get_col_prim(problem, i + 1);
+      case GLP_OPT:
+         result.status = LPResult::OPTIMAL;
+         result.primalSolution.resize(ncols);
+         for (int i = 0; i < ncols; ++i)
+            result.primalSolution[i] = glp_get_col_prim(problem, i + 1);
 
-            result.dualSolution.resize(nrows);
-            for (int j = 0; j < nrows; ++j)
-               result.dualSolution[j] = glp_get_row_prim(problem, j + 1);
+         result.dualSolution.resize(nrows);
+         for (int j = 0; j < nrows; ++j)
+            result.dualSolution[j] = glp_get_row_prim(problem, j + 1);
 
-            result.obj = glp_get_obj_val(problem);
-            break;
-         case GLP_INFEAS:
-            result.status = LPResult::INFEASIBLE;
-            break;
-         case GLP_UNBND:
-            result.status = LPResult::UNBOUNDED;
-            break;
-         case GLP_UNDEF:
-            result.status = LPResult::OTHER;
-            break;
+         result.obj = glp_get_obj_val(problem);
+         break;
+      case GLP_INFEAS:
+         result.status = LPResult::INFEASIBLE;
+         break;
+      case GLP_UNBND:
+         result.status = LPResult::UNBOUNDED;
+         break;
+      case GLP_UNDEF:
+         result.status = LPResult::OTHER;
+         break;
       }
    }
    else
@@ -120,9 +113,7 @@ GLPKSolver::solve()
 }
 
 GLPKSolver::GLPKSolver(const GLPKSolver& glpksolver)
-  : problem(nullptr)
-  , ncols(glpksolver.ncols)
-  , nrows(glpksolver.nrows)
+    : problem(nullptr), ncols(glpksolver.ncols), nrows(glpksolver.nrows)
 {
    problem = glp_create_prob();
    glp_copy_prob(problem, glpksolver.problem, GLP_OFF);
@@ -135,27 +126,7 @@ GLPKSolver::makeCopy() const
    return std::make_unique<GLPKSolver>(*this);
 }
 
-GLPKSolver::~GLPKSolver()
-{
-   glp_delete_prob(problem);
-}
-
-void
-GLPKSolver::branch(int col, double val, Direction direction)
-{
-   glp_add_rows(problem, 1);
-   ++nrows;
-
-   const double one = 1.0;
-   const int glpCol = col + 1;
-
-   glp_set_mat_row(problem, nrows, 1, &glpCol - 1, &one - 1);
-
-   if (direction == Direction::UP)
-      glp_set_row_bnds(problem, nrows, GLP_LO, val, 0.0);
-   else
-      glp_set_row_bnds(problem, nrows, GLP_UP, 0.0, val);
-}
+GLPKSolver::~GLPKSolver() { glp_delete_prob(problem); }
 
 void
 GLPKSolver::changeBounds(int column, double lb, double ub)
