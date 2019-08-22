@@ -87,29 +87,29 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
             if (slack_coef > 0.0)
             {
                if (Num::isMinusInf(lb[col]))
-                  rhs[col] = Num::infval;
+                  rhs[row] = Num::infval;
                else
                   rhs[row] -= slack_coef * lb[col];
 
                if (Num::isInf(ub[col]))
-                  lhs[col] = -Num::infval;
+                  lhs[row] = -Num::infval;
                else
                   lhs[row] -= slack_coef * ub[col];
             }
             else
             {
                if (Num::isInf(ub[col]))
-                  rhs[col] = Num::infval;
+                  rhs[row] = Num::infval;
                else
                   rhs[row] -= slack_coef * ub[col];
 
                if (Num::isMinusInf(lb[col]))
-                  lhs[col] = -Num::infval;
+                  lhs[row] = -Num::infval;
                else
                   lhs[row] -= slack_coef * lb[col];
             }
 
-            assert(lhs[row] != rhs[row]);
+            assert(lhs[row] != rhs[row] || lb[col] == ub[col]);
          }
       }
    }

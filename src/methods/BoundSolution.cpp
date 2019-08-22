@@ -50,8 +50,33 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
       }
    }
 
-   // TODO deal with inf lb
-   assert(!inflbIntVars.size());
+   for (auto col : inflbIntVars)
+   {
+      double oldlb = locallb[col];
+      double oldub = localub[col];
+      // check if the bound have been changed by propagation
+      if (!Num::isMinusInf(oldlb))
+      {
+         localub[col] = locallb[col];
+      }
+      else
+      {
+         if (Num::isInf(localub[col]))
+         {
+            locallb[col] = 0.0;
+            localub[col] = 0.0;
+         }
+         else
+            locallb[col] = localub[col];
+
+         if (!propagate(mip, locallb, localub, local_activities, col,
+                        oldlb, oldub))
+         {
+            feasible = false;
+            break;
+         }
+      }
+   }
 
    if (feasible)
    {
@@ -74,7 +99,7 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
             localsolver = solver->clone();
          localsolver->changeBounds(locallb, localub);
 
-         auto localresult = localsolver->solve();
+         auto localresult = localsolver->solve(Algorithm::DUAL);
          if (localresult.status == LPResult::OPTIMAL)
          {
             Message::debug("Bnd: lb: lp feasible");
@@ -95,7 +120,7 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
    std::vector<int> infubIntVars;
    for (int col = 0; col < ncols; ++col)
    {
-      if (integer[col] && locallb[col] != ub[col])
+      if (integer[col] && locallb[col] != localub[col])
       {
          if (Num::isInf(localub[col]))
          {
@@ -115,8 +140,33 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
       }
    }
 
-   // TODO deal with inf ub
-   assert(!infubIntVars.size());
+   for (auto col : infubIntVars)
+   {
+      double oldlb = locallb[col];
+      double oldub = localub[col];
+      // check if the bound have been changed by propagation
+      if (!Num::isInf(oldub))
+      {
+         locallb[col] = localub[col];
+      }
+      else
+      {
+         if (Num::isMinusInf(locallb[col]))
+         {
+            locallb[col] = 0.0;
+            localub[col] = 0.0;
+         }
+         else
+            localub[col] = locallb[col];
+
+         if (!propagate(mip, locallb, localub, local_activities, col,
+                        oldlb, oldub))
+         {
+            feasible = false;
+            break;
+         }
+      }
+   }
 
    if (feasible)
    {
@@ -138,7 +188,7 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
             localsolver = solver->clone();
          localsolver->changeBounds(locallb, localub);
 
-         auto localresult = localsolver->solve();
+         auto localresult = localsolver->solve(Algorithm::DUAL);
          if (localresult.status == LPResult::OPTIMAL)
          {
             Message::debug("Bnd: ub: lp feasible, obj {:0.2e}",

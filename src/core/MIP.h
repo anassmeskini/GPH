@@ -1,5 +1,5 @@
-#ifndef LP_HPP
-#define LP_HPP
+#ifndef MIP_HPP
+#define MIP_HPP
 
 #include "SparseMatrix.h"
 #include "dynamic_bitset/dynamic_bitset.hpp"
@@ -25,9 +25,7 @@ using Cols = HashMap<std::string, int>;
 struct VectorView
 {
    VectorView(const double* _array, const int* _indices, int _size)
-     : coefs(_array)
-     , indices(_indices)
-     , size(_size)
+       : coefs(_array), indices(_indices), size(_size)
    {
    }
 
@@ -68,22 +66,15 @@ void printStats(Statistics);
 
 class MIP
 {
-   public:
+ public:
    MIP() = default;
 
-   MIP(const Rows& rows,
-       const Cols& cols,
-       std::vector<double>&& coefsT,
-       std::vector<int>&& idxT,
-       std::vector<int>&& rstartT,
-       std::vector<double>&& rhs,
-       std::vector<double>&& lhs,
-       std::vector<double>&& lbs,
-       std::vector<double>&& ubs,
-       std::vector<double>&& obj,
-       dynamic_bitset<>&& integer,
-       std::vector<int>& rowSize,
-       std::vector<std::string>&& colNames);
+   MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
+       std::vector<int>&& idxT, std::vector<int>&& rstartT,
+       std::vector<double>&& rhs, std::vector<double>&& lhs,
+       std::vector<double>&& lbs, std::vector<double>&& ubs,
+       std::vector<double>&& obj, dynamic_bitset<>&& integer,
+       std::vector<int>& rowSize, std::vector<std::string>&& colNames);
 
    MIP(MIP&&) = default;
 
@@ -107,7 +98,10 @@ class MIP
 
    const std::vector<std::string>& getVarNames() const { return varNames; }
 
-   const std::vector<std::string>& getConsNames() const { return consNames; }
+   const std::vector<std::string>& getConsNames() const
+   {
+      return consNames;
+   }
 
    VectorView getRow(int row) const noexcept;
 
@@ -129,8 +123,9 @@ class MIP
 
    const std::vector<int>& getContVars() const { return continuous; }
 
-   private:
-   static SparseMatrix transpose(const SparseMatrix&, const std::vector<int>&);
+ private:
+   static SparseMatrix transpose(const SparseMatrix&,
+                                 const std::vector<int>&);
 
    // min {obj*x}
    std::vector<double> objective;

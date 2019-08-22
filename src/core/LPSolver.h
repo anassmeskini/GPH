@@ -1,5 +1,5 @@
-#ifndef _LPSOLVER_HPP
-#define _LPSOLVER_HPP
+#ifndef LPSOLVER_HPP
+#define LPSOLVER_HPP
 
 #include "MIP.h"
 #include "fmt/format.h"
@@ -25,10 +25,10 @@ struct LPResult
 
 std::string to_str(LPResult::Status);
 
-enum class Direction
+enum class Algorithm
 {
-   UP,
-   Down
+   PRIMAL,
+   DUAL,
 };
 
 class LPSolver
@@ -38,7 +38,7 @@ class LPSolver
 
    virtual ~LPSolver() = default;
 
-   virtual LPResult solve() = 0;
+   virtual LPResult solve(Algorithm) = 0;
 
    std::unique_ptr<LPSolver> clone() const
    {
@@ -50,6 +50,8 @@ class LPSolver
 
    virtual void changeBounds(const std::vector<double>&,
                              const std::vector<double>&) = 0;
+
+   virtual void changeObjective(int column, double coef) = 0;
 
  private:
    virtual std::unique_ptr<LPSolver> makeCopy() const = 0;

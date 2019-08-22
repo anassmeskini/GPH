@@ -29,7 +29,7 @@ Search::run(const MIP& mip)
    LPResult result;
 
    auto t0 = Timer::now();
-   result = lpSolver->solve();
+   result = lpSolver->solve(Algorithm::DUAL);
    auto t1 = Timer::now();
 
    // TODO
@@ -88,6 +88,11 @@ Search::run(const MIP& mip)
       }
    }
 
+   SOLFormat::write(
+       "best.sol",
+       heuristics_solutions[min_cost_sol.first][min_cost_sol.second].first,
+       mip.getVarNames());
+
    if (min_cost_sol != std::make_pair(-1, -1))
    {
       assert(min_cost_sol.first != -1 && min_cost_sol.second != -1);
@@ -110,7 +115,12 @@ Search::run(const MIP& mip)
    Message::print("\tRoot: found {} solutions",
                   heuristics_solutions.back().size());
    for (size_t i = 0; i < heuristics.size(); ++i)
-      Message::print("\t{}: {:0.1f} sec. found {} solutions",
+   {
+      std::string best;
+      if (i == static_cast<size_t>(min_cost_sol.first))
+         best = "\t[best]";
+      Message::print("\t{}: {:0.1f} sec. found {} solutions {}",
                      heuristics[i]->getName(), heuristics[i]->getRunTime(),
-                     heuristics_solutions[i].size());
+                     heuristics_solutions[i].size(), best);
+   }
 }

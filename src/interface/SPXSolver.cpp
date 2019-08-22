@@ -59,9 +59,21 @@ SPXSolver::SPXSolver(const SPXSolver& spxsolver)
 }
 
 LPResult
-SPXSolver::solve()
+SPXSolver::solve(Algorithm alg)
 {
    using namespace soplex;
+
+   switch (alg)
+   {
+   case Algorithm::PRIMAL:
+      mysoplex.setIntParam(IntParam::ALGORITHM, ALGORITHM_PRIMAL);
+      break;
+   case Algorithm::DUAL:
+      mysoplex.setIntParam(IntParam::ALGORITHM, ALGORITHM_DUAL);
+      break;
+   default:
+      assert(0);
+   }
 
    LPResult result;
    SPxSolver::Status stat;
@@ -121,6 +133,12 @@ SPXSolver::changeBounds(const std::vector<double>& lb,
    }
 
    mysoplex.changeBoundsReal(soplb, sopub);
+}
+
+void
+SPXSolver::changeObjective(int column, double coef)
+{
+   mysoplex.changeObjReal(column, coef);
 }
 
 #endif

@@ -61,7 +61,8 @@ class DivingHeuristic : public HeuristicMethod
          auto [varToFix, direction, nFrac] =
              SELECTION::select(mip, localsol);
 
-         Message::debug("{}: iter {}, nFrac {}", heur_name, iter, nFrac);
+         Message::debug_details("{}: iter {}, nFrac {}", heur_name, iter,
+                                nFrac);
 
          // TODO
          if (varToFix < 0)
@@ -96,7 +97,7 @@ class DivingHeuristic : public HeuristicMethod
          assert(locallb[varToFix] == localub[varToFix]);
          localsolver->changeBounds(varToFix, locallb[varToFix],
                                    localub[varToFix]);
-         auto res = localsolver->solve();
+         auto res = localsolver->solve(Algorithm::DUAL);
 
          if (res.status != LPResult::OPTIMAL)
             feasible = false;
@@ -105,7 +106,7 @@ class DivingHeuristic : public HeuristicMethod
             localsol = std::move(res.primalSolution);
             localobj = res.obj;
 
-            assert(localsol[varToFix] == locallb[varToFix]);
+            assert(Num::isFeasEQ(localsol[varToFix], locallb[varToFix]));
          }
 
       } while (feasible && iter < ncols / 4);

@@ -16,7 +16,7 @@ class CPXSolver : public LPSolver
 
    ~CPXSolver() override;
 
-   LPResult solve() override;
+   LPResult solve(Algorithm) override;
 
    std::unique_ptr<LPSolver> makeCopy() const override;
 
@@ -25,9 +25,12 @@ class CPXSolver : public LPSolver
    void changeBounds(const std::vector<double>&,
                      const std::vector<double>&) override;
 
+   void changeObjective(int, double) override;
+
  private:
    IloEnv env;
    IloModel model;
+   IloObjective objective;
    IloNumVarArray variables;
    IloRangeArray constraints;
    IloCplex cplex;

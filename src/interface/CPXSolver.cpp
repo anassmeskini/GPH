@@ -31,7 +31,8 @@ CPXSolver::CPXSolver(const MIP& mip)
       objExpr += variables[var] * obj[var];
    }
 
-   model.add(IloMinimize(env, objExpr));
+   objective = IloMinimize(env, objExpr);
+   model.add(objective);
 
    for (int row = 0; row < mip.getNRows(); ++row)
    {
@@ -56,6 +57,7 @@ CPXSolver::CPXSolver(const MIP& mip)
       // TODO
       assert(0);
    }
+   cplex.setOut(env.getNullStream());
 }
 
 CPXSolver::CPXSolver(const CPXSolver& cpxsolver)
@@ -70,12 +72,23 @@ CPXSolver::CPXSolver(const CPXSolver& cpxsolver)
       constraints.add(*it);
 
    cplex.extract(model);
+   cplex.setOut(env.getNullStream());
 }
 
 LPResult
-CPXSolver::solve()
+CPXSolver::solve(Algorithm alg)
 {
-   cplex.setOut(env.getNullStream());
+   switch (alg)
+   {
+   case Algorithm::PRIMAL:
+      cplex.setParam(IloCplex::Param::RootAlgorithm, CPX_ALG_PRIMAL);
+      break;
+   case Algorithm::DUAL:
+      cplex.setParam(IloCplex::Param::RootAlgorithm, CPX_ALG_DUAL);
+      break;
+   default:
+      assert(0);
+   }
 
    cplex.solve();
 
@@ -127,6 +140,12 @@ CPXSolver::changeBounds(int column, double lb, double ub)
    variables[column].setBounds(lb, ub);
    assert(variables[column].getLb() == lb);
    assert(variables[column].getUb() == ub);
+}
+
+void
+CPXSolver::changeObjective(int column, double coef)
+{
+   objective.setLinearCoef(variables[column], coef);
 }
 
 void

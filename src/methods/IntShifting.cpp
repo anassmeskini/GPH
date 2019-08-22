@@ -5,13 +5,14 @@
 #include "io/Message.h"
 #include "io/SOLFormat.h"
 
-void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
-                         const std::vector<double> &ub,
-                         const std::vector<Activity> &, const LPResult &result,
-                         const std::vector<double> &solAct,
-                         const std::vector<int> &fractional,
-                         std::shared_ptr<const LPSolver> lpsolver,
-                         SolutionPool &pool)
+void
+IntShifting::search(const MIP& mip, const std::vector<double>& lb,
+                    const std::vector<double>& ub,
+                    const std::vector<Activity>&, const LPResult& result,
+                    const std::vector<double>& solAct,
+                    const std::vector<int>& fractional,
+                    std::shared_ptr<const LPSolver> lpsolver,
+                    SolutionPool& pool)
 {
    // if there is no continuous variables
    // this heuristic es equal to shifting
@@ -22,11 +23,11 @@ void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
    int nrows = mip.getNRows();
    int ncols = mip.getNCols();
 
-   const auto &lhs = mip.getLHS();
-   const auto &rhs = mip.getRHS();
-   const auto &upLocks = mip.getUpLocks();
-   const auto &downLocks = mip.getDownLocks();
-   const auto &integer = mip.getInteger();
+   const auto& lhs = mip.getLHS();
+   const auto& rhs = mip.getRHS();
+   const auto& upLocks = mip.getUpLocks();
+   const auto& downLocks = mip.getDownLocks();
+   const auto& integer = mip.getInteger();
 
    std::unique_ptr<LPSolver> localsolver;
 
@@ -88,7 +89,7 @@ void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
 
    // compute the solution activities that ignores continuous activities
    auto intSolAct = solAct;
-   const auto &contVars = mip.getContVars();
+   const auto& contVars = mip.getContVars();
    for (auto col : contVars)
    {
       auto [colcoefs, colindices, colsize] = mip.getCol(col);
@@ -166,22 +167,22 @@ void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
          else
             solution[col] = Num::ceil(solution[col]);
 
-         nviolated += updateSolActivity(solActivity, mip.getCol(col), locallhs,
-                                        localrhs, solution[col] - oldval,
-                                        violatedRows, isviolated);
+         nviolated += updateSolActivity(
+             solActivity, mip.getCol(col), locallhs, localrhs,
+             solution[col] - oldval, violatedRows, isviolated);
 
          if (nviolated == 0)
             continue;
 
-         Message::debug_details(
-             "ShifInt: {} rows violated after rouding col {} from {} -> {}",
-             nviolated, col, oldval, solution[col]);
+         Message::debug_details("ShifInt: {} rows violated after rouding "
+                                "col {} from {} -> {}",
+                                nviolated, col, oldval, solution[col]);
 
          // it's possible to have a cycling change of values of continuous
          // variables so we limit the number of times they can change
          int nchanges = 0;
-         for (size_t j = 0; j < violatedRows.size() && nchanges <= 50 * ncols;
-              ++j)
+         for (size_t j = 0;
+              j < violatedRows.size() && nchanges <= 50 * ncols; ++j)
          {
             int row = violatedRows[j];
             assert(row < nrows);
@@ -232,16 +233,17 @@ void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
 
                if (std::fabs(solution[ncol] - oldnval) > 1e-6)
                {
-                  Message::debug_details("ShifInt: changed int col {} (coef "
-                                         "{})  value from {} -> {}",
-                                         ncol, ncoef, oldnval, solution[ncol]);
+                  Message::debug_details(
+                      "ShifInt: changed int col {} (coef "
+                      "{})  value from {} -> {}",
+                      ncol, ncoef, oldnval, solution[ncol]);
 
                   nviolated += updateSolActivity(
                       solActivity, mip.getCol(ncol), locallhs, localrhs,
                       solution[ncol] - oldnval, violatedRows, isviolated);
-                  Message::debug_details(
-                      "ShifInt: number of rows violated after col change {}",
-                      nviolated);
+                  Message::debug_details("ShifInt: number of rows "
+                                         "violated after col change {}",
+                                         nviolated);
                }
 
                auto act = computeSolActivities(mip, solution);
@@ -274,17 +276,17 @@ void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
                {
                   if (ncoef > 0.0)
                   {
-                     solution[ncol] +=
-                         std::min((locallhs[row] - solActivity[row]) / ncoef,
-                                  ub[ncol] - oldnval);
+                     solution[ncol] += std::min(
+                         (locallhs[row] - solActivity[row]) / ncoef,
+                         ub[ncol] - oldnval);
 
                      solution[ncol] = Num::ceil(solution[ncol]);
                   }
                   else
                   {
-                     solution[ncol] +=
-                         std::max((locallhs[row] - solActivity[row]) / ncoef,
-                                  lb[ncol] - oldnval);
+                     solution[ncol] += std::max(
+                         (locallhs[row] - solActivity[row]) / ncoef,
+                         lb[ncol] - oldnval);
 
                      solution[ncol] = Num::floor(solution[ncol]);
                   }
@@ -295,17 +297,17 @@ void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
 
                   if (ncoef > 0.0)
                   {
-                     solution[ncol] +=
-                         std::max((localrhs[row] - solActivity[row]) / ncoef,
-                                  lb[ncol] - oldnval);
+                     solution[ncol] += std::max(
+                         (localrhs[row] - solActivity[row]) / ncoef,
+                         lb[ncol] - oldnval);
 
                      solution[ncol] = Num::floor(solution[ncol]);
                   }
                   else
                   {
-                     solution[ncol] +=
-                         std::min((localrhs[row] - solActivity[row]) / ncoef,
-                                  ub[ncol] - oldnval);
+                     solution[ncol] += std::min(
+                         (localrhs[row] - solActivity[row]) / ncoef,
+                         ub[ncol] - oldnval);
 
                      solution[ncol] = Num::ceil(solution[ncol]);
                   }
@@ -323,9 +325,9 @@ void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
                       solution[ncol] - oldnval, violatedRows, isviolated);
 
                   ++nchanges;
-                  Message::debug_details(
-                      "ShifInt: number of rows violated after col change {}",
-                      nviolated);
+                  Message::debug_details("ShifInt: number of rows "
+                                         "violated after col change {}",
+                                         nviolated);
                }
 
                auto act = computeSolActivities(mip, solution);
@@ -366,16 +368,18 @@ void IntShifting::search(const MIP &mip, const std::vector<double> &lb,
             if (integer[col])
             {
                assert(Num::isIntegral(solution[col]));
-               localsolver->changeBounds(col, solution[col], solution[col]);
+               localsolver->changeBounds(col, solution[col],
+                                         solution[col]);
             }
          }
 
-         auto local_result = localsolver->solve();
+         auto local_result = localsolver->solve(Algorithm::DUAL);
          if (local_result.status == LPResult::OPTIMAL)
          {
             Message::debug("ShifInt: lp sol feasible");
 
-            pool.add(std::move(local_result.primalSolution), local_result.obj);
+            pool.add(std::move(local_result.primalSolution),
+                     local_result.obj);
          }
          else if (local_result.status == LPResult::INFEASIBLE)
             Message::debug("ShifInt: lp sol infeasible");

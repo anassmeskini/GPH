@@ -5,25 +5,26 @@
 #include "io/Message.h"
 #include "io/SOLFormat.h"
 
-void MinLockRounding::search(const MIP &mip, const std::vector<double> &lb,
-                             const std::vector<double> &ub,
-                             const std::vector<Activity> &,
-                             const LPResult &result,
-                             const std::vector<double> &solAct,
-                             const std::vector<int> &fractional,
-                             std::shared_ptr<const LPSolver> lpsolver,
-                             SolutionPool &pool)
+void
+MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
+                        const std::vector<double>& ub,
+                        const std::vector<Activity>&,
+                        const LPResult& result,
+                        const std::vector<double>& solAct,
+                        const std::vector<int>& fractional,
+                        std::shared_ptr<const LPSolver> lpsolver,
+                        SolutionPool& pool)
 {
    int nrows = mip.getNRows();
    int ncols = mip.getNCols();
    int ncont = mip.getStatistics().ncont;
 
-   const auto &lhs = mip.getLHS();
-   const auto &rhs = mip.getRHS();
-   const auto &upLocks = mip.getUpLocks();
-   const auto &downLocks = mip.getDownLocks();
-   const auto &integer = mip.getInteger();
-   const auto &objective = mip.getObj();
+   const auto& lhs = mip.getLHS();
+   const auto& rhs = mip.getRHS();
+   const auto& upLocks = mip.getUpLocks();
+   const auto& downLocks = mip.getDownLocks();
+   const auto& integer = mip.getInteger();
+   const auto& objective = mip.getObj();
 
    std::unique_ptr<LPSolver> localsolver;
 
@@ -91,9 +92,9 @@ void MinLockRounding::search(const MIP &mip, const std::vector<double> &lb,
          else
             solution[col] = Num::ceil(solution[col]);
 
-         nviolated += updateSolActivity(solActivity, mip.getCol(col), lhs, rhs,
-                                        solution[col] - oldval, violatedRows,
-                                        isviolated);
+         nviolated += updateSolActivity(solActivity, mip.getCol(col), lhs,
+                                        rhs, solution[col] - oldval,
+                                        violatedRows, isviolated);
 
          if (nviolated == 0)
             continue;
@@ -183,10 +184,10 @@ void MinLockRounding::search(const MIP &mip, const std::vector<double> &lb,
 
                if (std::fabs(solution[ncol] - oldnval) > 1e-6)
                {
-                  Message::debug_details("Round: changed col {} (int?: {}, "
-                                         "coef {})  value from {} -> {}",
-                                         ncol, integer[ncol], ncoef, oldnval,
-                                         solution[ncol]);
+                  Message::debug_details(
+                      "Round: changed col {} (int?: {}, "
+                      "coef {})  value from {} -> {}",
+                      ncol, integer[ncol], ncoef, oldnval, solution[ncol]);
 
                   if (!integer[ncol])
                      ++ncontchanges;
@@ -253,11 +254,12 @@ void MinLockRounding::search(const MIP &mip, const std::vector<double> &lb,
                if (integer[col])
                {
                   assert(Num::isIntegral(solution[col]));
-                  localsolver->changeBounds(col, solution[col], solution[col]);
+                  localsolver->changeBounds(col, solution[col],
+                                            solution[col]);
                }
             }
 
-            auto local_result = localsolver->solve();
+            auto local_result = localsolver->solve(Algorithm::DUAL);
             if (local_result.status == LPResult::OPTIMAL)
             {
                Message::debug("Round: lp sol feasible");

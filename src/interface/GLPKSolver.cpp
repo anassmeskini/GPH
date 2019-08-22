@@ -72,11 +72,27 @@ GLPKSolver::GLPKSolver(const MIP& mip)
 }
 
 LPResult
-GLPKSolver::solve()
+GLPKSolver::solve(Algorithm alg)
 {
-   LPResult result;
-   int ret = glp_simplex(problem, nullptr);
+   int ret;
+   glp_smcp params;
+   glp_init_smcp(&params);
 
+   switch (alg)
+   {
+   case Algorithm::PRIMAL:
+      params.meth = GLP_PRIMAL;
+      break;
+   case Algorithm::DUAL:
+      params.meth = GLP_DUALP;
+      break;
+   default:
+      assert(0);
+   }
+
+   int ret = glp_simplex(problem, params);
+
+   LPResult result;
    if (!ret)
    {
       int st = glp_get_status(problem);
@@ -95,6 +111,7 @@ GLPKSolver::solve()
          result.obj = glp_get_obj_val(problem);
          break;
       case GLP_INFEAS:
+      case GLP_NOFEAS:
          result.status = LPResult::INFEASIBLE;
          break;
       case GLP_UNBND:
@@ -103,6 +120,8 @@ GLPKSolver::solve()
       case GLP_UNDEF:
          result.status = LPResult::OTHER;
          break;
+      default:
+         assert(0);
       }
    }
    else
@@ -171,4 +190,11 @@ GLPKSolver::changeBounds(const std::vector<double>& lb,
       glp_set_col_bnds(problem, col + 1, boundtype, lb[col], ub[col]);
    }
 }
+
+void
+GLPSolver::changeObjective(int column, double coef)
+{
+   glp_set_obj_coef(problem, column + 1, coef);
+}
+
 #endif // GLPK_FOUND

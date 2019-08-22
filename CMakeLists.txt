@@ -36,12 +36,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # dependencies
 find_package(TBB REQUIRED tbb)
 
-#use the header only version of fmtlib
+# use the header only version of fmtlib
 add_compile_definitions(FMT_HEADER_ONLY)
 
-#solvers
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
+# solvers
 if(SOLVER STREQUAL "cpx")
    find_package(Cplex REQUIRED)
 elseif(SOLVER STREQUAL "spx")

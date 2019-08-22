@@ -5,24 +5,24 @@
 #include "io/Message.h"
 #include "io/SOLFormat.h"
 
-void Shifting::search(const MIP &mip, const std::vector<double> &lb,
-                      const std::vector<double> &ub,
-                      const std::vector<Activity> &,
-                      const LPResult &result,
-                      const std::vector<double> &solAct,
-                      const std::vector<int> &fractional,
-                      std::shared_ptr<const LPSolver> lpsolver,
-                      SolutionPool &pool)
+void
+Shifting::search(const MIP& mip, const std::vector<double>& lb,
+                 const std::vector<double>& ub,
+                 const std::vector<Activity>&, const LPResult& result,
+                 const std::vector<double>& solAct,
+                 const std::vector<int>& fractional,
+                 std::shared_ptr<const LPSolver> lpsolver,
+                 SolutionPool& pool)
 {
    int nrows = mip.getNRows();
    int ncols = mip.getNCols();
 
-   const auto &lhs = mip.getLHS();
-   const auto &rhs = mip.getRHS();
-   const auto &upLocks = mip.getUpLocks();
-   const auto &downLocks = mip.getDownLocks();
-   const auto &integer = mip.getInteger();
-   const auto &objective = mip.getObj();
+   const auto& lhs = mip.getLHS();
+   const auto& rhs = mip.getRHS();
+   const auto& upLocks = mip.getUpLocks();
+   const auto& downLocks = mip.getDownLocks();
+   const auto& integer = mip.getInteger();
+   const auto& objective = mip.getObj();
 
    std::unique_ptr<LPSolver> localsolver;
 
@@ -313,7 +313,7 @@ void Shifting::search(const MIP &mip, const std::vector<double> &lb,
                }
             }
 
-            auto local_result = localsolver->solve();
+            auto local_result = localsolver->solve(Algorithm::DUAL);
             if (local_result.status == LPResult::OPTIMAL)
             {
                Message::debug("Shif: lp sol feasible");

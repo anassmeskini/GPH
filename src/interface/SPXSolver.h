@@ -14,7 +14,7 @@ class SPXSolver : public LPSolver
 
    ~SPXSolver() override = default;
 
-   LPResult solve() override;
+   LPResult solve(Algorithm) override;
 
    std::unique_ptr<LPSolver> makeCopy() const override;
 
@@ -22,6 +22,8 @@ class SPXSolver : public LPSolver
 
    void changeBounds(const std::vector<double>&,
                      const std::vector<double>&) override;
+
+   void changeObjective(int, double) override;
 
  private:
    soplex::SoPlex mysoplex;
