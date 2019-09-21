@@ -1,13 +1,13 @@
-#ifndef MINLOCK2_HPP
-#define MINLOCK2_HPP
+#ifndef MIN_FRAC_HPP
+#define MIN_FRAC_HPP
 #include "core/Heuristic.h"
 
 #include <vector>
 
-class MinLockRounding : public HeuristicMethod
+class MinFracRounding : public HeuristicMethod
 {
  public:
-   MinLockRounding() : HeuristicMethod("LockRounding") {}
+   MinFracRounding() : HeuristicMethod("FracRounding") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,
@@ -15,7 +15,7 @@ class MinLockRounding : public HeuristicMethod
                const std::vector<int>&, std::shared_ptr<const LPSolver>,
                SolutionPool&) override;
 
-   ~MinLockRounding() override = default;
+   ~MinFracRounding() override = default;
 };
 
 #endif

@@ -171,6 +171,9 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
              solActivity, mip.getCol(col), locallhs, localrhs,
              solution[col] - oldval, violatedRows, isviolated);
 
+         assert(Num::isFeasGE(solution[col], lb[col]));
+         assert(Num::isFeasLE(solution[col], ub[col]));
+
          if (nviolated == 0)
             continue;
 
@@ -230,6 +233,9 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
                   else
                      solution[ncol] = Num::ceil(solution[ncol]);
                }
+
+               assert(Num::isFeasGE(solution[ncol], lb[ncol]));
+               assert(Num::isFeasLE(solution[ncol], ub[ncol]));
 
                if (std::fabs(solution[ncol] - oldnval) > 1e-6)
                {
@@ -313,6 +319,9 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
                   }
                }
 
+               assert(Num::isFeasGE(solution[ncol], lb[ncol]));
+               assert(Num::isFeasLE(solution[ncol], ub[ncol]));
+
                if (std::fabs(solution[ncol] - oldnval) > 1e-6)
                {
                   Message::debug_details(
@@ -378,6 +387,8 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
          {
             Message::debug("ShifInt: lp sol feasible");
 
+            assert(checkFeasibility<double>(mip,
+                                            local_result.primalSolution));
             pool.add(std::move(local_result.primalSolution),
                      local_result.obj);
          }

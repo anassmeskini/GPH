@@ -45,14 +45,8 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                              std::min(downLocks[right], upLocks[right]);
                    });
          break;
+
       case 1:
-         std::sort(std::begin(fracPermutation), std::end(fracPermutation),
-                   [&](int left, int right) {
-                      return std::max(downLocks[left], upLocks[left]) <
-                             std::max(downLocks[right], upLocks[right]);
-                   });
-         break;
-      case 2:
          std::sort(std::begin(fracPermutation), std::end(fracPermutation),
                    [&](int left, int right) {
                       assert(left < ncols);
@@ -60,32 +54,29 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                       return mip.getColSize(left) < mip.getColSize(right);
                    });
          break;
-      case 3:
-         std::sort(std::begin(fracPermutation), std::end(fracPermutation),
-                   [&](int left, int right) {
-                      assert(left < ncols);
-                      assert(right < ncols);
-                      return mip.getColSize(left) > mip.getColSize(right);
-                   });
-         break;
       default:
          assert(0);
       }
 
-      for (int i = 0; i < static_cast<int>(fractional.size()); ++i)
+      // TODO try std set instead
+      std::vector<int> violatedRows;
+      dynamic_bitset<> isviolated(nrows, false);
+      violatedRows.reserve(nrows / 4);
+      for (size_t i = 0; i < fractional.size(); ++i)
       {
+         violatedRows.clear();
+         isviolated.reset();
          int nviolated = 0;
-         std::vector<int> violatedRows;
-         dynamic_bitset<> isviolated(nrows, false);
-         violatedRows.reserve(nrows);
 
-         // TODO only iterate on fractional variables
          int col = fracPermutation[i];
-
          assert(integer[col]);
+
+         // if it was set to an integer value in
+         // the correction phase
          if (Num::isIntegral(solution[col]))
             continue;
 
+         // round
          double oldval = solution[col];
          if (downLocks[col] < upLocks[col])
             solution[col] = Num::floor(solution[col]);
@@ -96,22 +87,27 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                                         rhs, solution[col] - oldval,
                                         violatedRows, isviolated);
 
+         auto lpviolated = getNViolated<double, true>;
+         assert(nviolated == lpviolated(mip, solution, 1e-9, 1e-6));
+
          if (nviolated == 0)
             continue;
 
          Message::debug_details(
-             "Round: {} rows violated after rouding col {} from {} -> {}",
+             "Round: {} rows violated after rounding col {} from {} -> {}",
              nviolated, col, oldval, solution[col]);
 
          // it's possible to have a cycling change of values of continuous
          // variables so we limit the number of times they can change
          int ncontchanges = 0;
          for (size_t j = 0;
-              j < violatedRows.size() && ncontchanges <= 2 * ncont; ++j)
+              j < violatedRows.size() && ncontchanges < 2 * ncont; ++j)
          {
             int row = violatedRows[j];
             assert(row < nrows);
 
+            // if it was corrected after being added
+            // to the violated list
             if (!isviolated[row])
                continue;
 
@@ -124,7 +120,6 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
 
             auto [rowcoefs, rowindices, rowsize] = mip.getRow(row);
 
-            violatedRows.clear();
             bool row_corrected = false;
 
             for (int k = 0; k < rowsize; ++k)
@@ -182,7 +177,7 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                   }
                }
 
-               if (std::fabs(solution[ncol] - oldnval) > 1e-6)
+               if (!Num::isFeasEQ(solution[ncol], oldnval))
                {
                   Message::debug_details(
                       "Round: changed col {} (int?: {}, "
@@ -204,6 +199,7 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                for (int lrow = 0; lrow < nrows; ++lrow)
                   assert(std::fabs(solActivity[lrow] - act[lrow]) < 1e-6);
 
+               // if the row was corrected
                if (Num::isFeasGE(solActivity[row], lhs[row]) &&
                    Num::isFeasLE(solActivity[row], rhs[row]))
                {
@@ -230,13 +226,10 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
       {
          Message::debug("Round: feasible");
 
-         for (int row = 0; row < nrows; ++row)
-            assert(solActivity[row] >= lhs[row] - 1e-6 &&
-                   solActivity[row] <= rhs[row] + 1e-6);
-
          if (mip.getStatistics().ncont == 0)
          {
             Message::debug("Round: 0 cont");
+            assert(checkFeasibility<double>(mip, solution));
 
             double cost = 0.0;
             for (int i = 0; i < ncols; ++i)
@@ -263,6 +256,8 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
             if (local_result.status == LPResult::OPTIMAL)
             {
                Message::debug("Round: lp sol feasible");
+               assert(checkFeasibility<double>(
+                   mip, local_result.primalSolution, 1e-6, 1e-6));
                pool.add(std::move(local_result.primalSolution),
                         local_result.obj);
             }
@@ -272,7 +267,5 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                assert(0);
          }
       }
-
-      ++ordering;
-   } while (ordering < 4 && feasible);
+   } while (++ordering < 2 && feasible);
 }

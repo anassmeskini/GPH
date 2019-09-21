@@ -31,13 +31,9 @@ std::vector<double>
 computeSolActivities(const MIP& mip, const std::vector<double>& sol);
 
 int
-updateSolActivity(std::vector<double>&,
-                  VectorView,
-                  const std::vector<double>&,
-                  const std::vector<double>&,
-                  double,
-                  std::vector<int>&,
-                  dynamic_bitset<>&);
+updateSolActivity(std::vector<double>&, VectorView,
+                  const std::vector<double>&, const std::vector<double>&,
+                  double, std::vector<int>&, dynamic_bitset<>&);
 
 std::vector<int>
 getFractional(const std::vector<double>&, const dynamic_bitset<>&);
@@ -45,12 +41,10 @@ getFractional(const std::vector<double>&, const dynamic_bitset<>&);
 std::vector<int>
 getIndentity(int ncols);
 
-template<typename REAL>
+template <typename REAL, bool LP = false>
 bool
-checkFeasibility(const MIP& mip,
-                 const std::vector<double>& sol,
-                 REAL boundtol,
-                 REAL constol)
+checkFeasibility(const MIP& mip, const std::vector<double>& sol,
+                 REAL boundtol = 1e-9, REAL constol = 1e-6)
 {
    const auto& ub = mip.getUB();
    const auto& lb = mip.getLB();
@@ -66,26 +60,73 @@ checkFeasibility(const MIP& mip,
           sol[colid] < lb[colid] - boundtol)
          return false;
 
-      if (integer[colid] && !Num::isIntegral(sol[colid]))
-         return false;
+      if constexpr (!LP)
+      {
+         if (integer[colid] && !Num::isFeasInt(sol[colid]))
+            return false;
+      }
    }
 
    for (int rowid = 0; rowid < mip.getNRows(); ++rowid)
    {
       auto [coefs, indices, size] = mip.getRow(rowid);
-      REAL activity{ 0.0 };
+      REAL activity{0.0};
 
       for (int id = 0; id < size; ++id)
          activity += coefs[id] * sol[indices[id]];
 
-      if (activity > rhs[rowid] + constol || activity < lhs[rowid] - constol)
+      if (activity > rhs[rowid] + constol ||
+          activity < lhs[rowid] - constol)
          return false;
    }
 
    return true;
 }
 
-template<typename COMP>
+template <typename REAL, bool LP = false>
+int
+getNViolated(const MIP& mip, const std::vector<double>& sol,
+             REAL boundtol = 1e-9, REAL constol = 1e-6)
+{
+   const auto& ub = mip.getUB();
+   const auto& lb = mip.getLB();
+   const auto& lhs = mip.getLHS();
+   const auto& rhs = mip.getRHS();
+   const auto& integer = mip.getInteger();
+
+   assert(sol.size() == static_cast<size_t>(mip.getNCols()));
+
+   int ninfeas = 0;
+   for (int colid = 0; colid < mip.getNCols(); ++colid)
+   {
+      if (sol[colid] > ub[colid] + boundtol ||
+          sol[colid] < lb[colid] - boundtol)
+         ++ninfeas;
+
+      if constexpr (!LP)
+      {
+         if (integer[colid] && !Num::isFeasInt(sol[colid]))
+            ++ninfeas;
+      }
+   }
+
+   for (int rowid = 0; rowid < mip.getNRows(); ++rowid)
+   {
+      auto [coefs, indices, size] = mip.getRow(rowid);
+      REAL activity{0.0};
+
+      for (int id = 0; id < size; ++id)
+         activity += coefs[id] * sol[indices[id]];
+
+      if (activity > rhs[rowid] + constol ||
+          activity < lhs[rowid] - constol)
+         ++ninfeas;
+   }
+
+   return ninfeas;
+}
+
+template <typename COMP>
 void
 sortRows(SparseMatrix& mat, COMP&& comp)
 {
@@ -113,8 +154,7 @@ sortRows(SparseMatrix& mat, COMP&& comp)
 
       std::memcpy(permutation.data(), identity.data(), sizeof(int) * size);
 
-      std::sort(std::begin(permutation),
-                std::end(permutation),
+      std::sort(std::begin(permutation), std::end(permutation),
                 [&](int left, int right) {
                    return comp(indices[left], indices[right]);
                 });
@@ -156,7 +196,22 @@ minLockRound(const MIP& mip,             // mip
              const std::vector<int>&);   // fractional columns
 
 void
-maxOutSolution(const MIP& mip,
-               std::vector<double>& solution,
+maxOutSolution(const MIP& mip, std::vector<double>& solution,
                const std::vector<double>& activity);
+void
+roundFeasIntegers(std::vector<double>& sol,
+                  const dynamic_bitset<>& integer);
+
+template <typename T, typename PREDICATE>
+bool all_of(const std::vector<T>& v1, const std::vector<T>& v2, PREDICATE&& pred)
+{
+   assert(v1.size() == v2.size());
+
+   for(size_t i = 0; i < v1.size(); ++i)
+   {
+      if(!pred(v1[i], v2[i]))
+         return false;
+   }
+   return true;
+}
 #endif

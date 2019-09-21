@@ -46,7 +46,8 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
 
    int nslacks = 0;
 
-   for (int col = 0; col < ncols; ++col)
+   // TODO this is buggy on b1c1s1.mps
+   /*for (int col = 0; col < ncols; ++col)
    {
       int colsize = rstartT[col + 1] - rstartT[col];
 
@@ -112,7 +113,7 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
             assert(lhs[row] != rhs[row] || lb[col] == ub[col]);
          }
       }
-   }
+   }*/
 
    Message::debug("Removed {} slacks", nslacks);
 
@@ -130,7 +131,7 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
 
    // adjust the objective for the removed slacks
    // s = (rhs - Ax)/b
-   for (auto tuple : removedSlacks)
+   /*for (auto tuple : removedSlacks)
    {
       int row = std::get<0>(tuple);
       int slack = std::get<1>(tuple);
@@ -153,11 +154,11 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
 
          objective[col] -= slack_obj * coef / slack_coef;
       }
-   }
+   }*/
 
-   sortRows(constMatrix, [&](int left, int right) {
+   /*sortRows(constMatrix, [&](int left, int right) {
       return integer[left] && !integer[right];
-   });
+   });*/
 
    // fill coefficients statistics
    stats.nnzmat = constMatrixT.coefficients.size();

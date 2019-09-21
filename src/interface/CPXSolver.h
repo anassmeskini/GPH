@@ -35,6 +35,12 @@ class CPXSolver : public LPSolver
    IloRangeArray constraints;
    IloCplex cplex;
 
+   // mapping of the order in which the IloRange are obtained
+   // when iterating with IloIterator<IloRange> to the row number in the
+   // problem
+   // used to copy a model and keep the correct order in the IloRangeArray
+   HashMap<int, int> exidTorowid;
+
    int ncols;
    int nrows;
 };

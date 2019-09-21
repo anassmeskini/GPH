@@ -296,6 +296,7 @@ Shifting::search(const MIP& mip, const std::vector<double>& lb,
             for (int i = 0; i < ncols; ++i)
                cost += objective[i] * solution[i];
 
+            assert(checkFeasibility<double>(mip, solution));
             pool.add(std::move(solution), cost);
          }
          else
@@ -317,6 +318,8 @@ Shifting::search(const MIP& mip, const std::vector<double>& lb,
             if (local_result.status == LPResult::OPTIMAL)
             {
                Message::debug("Shif: lp sol feasible");
+               assert(checkFeasibility<double>(
+                   mip, local_result.primalSolution));
                pool.add(std::move(local_result.primalSolution),
                         local_result.obj);
             }

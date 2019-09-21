@@ -12,28 +12,39 @@ struct Num
 
    static double ceil(double val) { return std::ceil(val); }
 
-   static double isGE(double lhs, double rhs) { return lhs - rhs >= -epsilon; }
+   static bool isGE(double lhs, double rhs)
+   {
+      return lhs - rhs >= -epsilon;
+   }
 
-   static double isLE(double lhs, double rhs) { return lhs - rhs <= epsilon; }
+   static bool isLE(double lhs, double rhs)
+   {
+      return lhs - rhs <= epsilon;
+   }
 
-   static double isEQ(double lhs, double rhs)
+   static bool isEQ(double lhs, double rhs)
    {
       return std::fabs(rhs - lhs) <= epsilon;
    }
 
-   static double isFeasGE(double lhs, double rhs)
+   static bool isFeasGE(double lhs, double rhs)
    {
       return lhs - rhs >= -constol;
    }
 
-   static double isFeasLE(double lhs, double rhs)
+   static bool isFeasLE(double lhs, double rhs)
    {
       return lhs - rhs <= constol;
    }
 
-   static double isFeasEQ(double lhs, double rhs)
+   static bool isFeasEQ(double lhs, double rhs)
    {
       return std::fabs(rhs - lhs) <= constol;
+   }
+
+   static bool isFeasInt(double val)
+   {
+      return std::fabs(val - round(val)) < epsilon;
    }
 
    static int sign(double val)
@@ -54,9 +65,10 @@ struct Num
 
    static constexpr double infinity() { return infval; }
 
-   static constexpr double infval = std::numeric_limits<double>::infinity();
+   static constexpr double infval =
+       std::numeric_limits<double>::infinity();
 
-   private:
+ private:
    static constexpr double constol = 1e-6;
 
    static constexpr double epsilon = 1e-9;

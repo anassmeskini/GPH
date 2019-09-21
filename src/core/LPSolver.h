@@ -21,6 +21,9 @@ struct LPResult
    std::vector<double> primalSolution;
    std::vector<double> dualSolution;
    double obj;
+
+   // number of simplex iterations
+   int niter;
 };
 
 std::string to_str(LPResult::Status);

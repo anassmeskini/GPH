@@ -14,6 +14,10 @@ struct SparseMatrix
 
    SparseMatrix& operator=(SparseMatrix&&) noexcept;
 
+#ifdef UNIT_TEST
+   SparseMatrix& operator=(SparseMatrix&) = default;
+#endif
+
    int ncols;
    int nrows;
    std::vector<double> coefficients;

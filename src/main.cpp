@@ -12,8 +12,10 @@
 #include "methods/BoundSolution.h"
 #include "methods/CoefDiving.h"
 #include "methods/DivingHeuristic.h"
+#include "methods/FeasPump.h"
 #include "methods/FracDiving.h"
 #include "methods/IntShifting.h"
+#include "methods/MinFracRounding.h"
 #include "methods/MinLockRounding.h"
 #include "methods/Shifting.h"
 #include "methods/VecLengthDiving.h"
@@ -71,11 +73,13 @@ main(int argc, char** argv)
       return 1;
    }
 
-   printStats(mip.getStatistics());
+   if (Message::verbosity != Message::RELEASE)
+      printStats(mip.getStatistics());
 
-   Search search{new BoundSolution,  new MinLockRounding, new Shifting,
-                 new IntShifting,    new CoefDiving,      new FracDiving,
-                 new VecLengthDiving};
+   Search search{new BoundSolution,   new MinFracRounding,
+                 new MinLockRounding, new Shifting,
+                 new IntShifting,     new CoefDiving,
+                 new FracDiving,      new VecLengthDiving};
    search.run(mip);
 
    return 0;

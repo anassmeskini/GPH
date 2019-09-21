@@ -74,11 +74,9 @@ computeSolActivities(const MIP& mip, const std::vector<double>& sol)
 }
 
 int
-updateSolActivity(std::vector<double>& activities,
-                  VectorView colview,
+updateSolActivity(std::vector<double>& activities, VectorView colview,
                   const std::vector<double>& lhs,
-                  const std::vector<double>& rhs,
-                  double deltaVal,
+                  const std::vector<double>& rhs, double deltaVal,
                   std::vector<int>& violatedRows,
                   dynamic_bitset<>& isviolated)
 {
@@ -114,7 +112,8 @@ updateSolActivity(std::vector<double>& activities,
 }
 
 std::vector<int>
-getFractional(const std::vector<double>& sol, const dynamic_bitset<>& integer)
+getFractional(const std::vector<double>& sol,
+              const dynamic_bitset<>& integer)
 {
    assert(sol.size() == integer.size());
    int ncols = sol.size();
@@ -194,10 +193,8 @@ zeroLockRound(std::vector<double>& solution,
 }
 
 std::optional<std::pair<std::vector<double>, double>>
-minLockRound(const MIP& mip,
-             const std::vector<double>& solution,
-             double obj,
-             const std::vector<int>& fractional)
+minLockRound(const MIP& mip, const std::vector<double>& solution,
+             double obj, const std::vector<int>& fractional)
 {
    int nrows = mip.getNRows();
    const auto& lhs = mip.getLHS();
@@ -244,8 +241,7 @@ minLockRound(const MIP& mip,
 }
 
 void
-maxOutSolution(const MIP& mip,
-               std::vector<double>& solution,
+maxOutSolution(const MIP& mip, std::vector<double>& solution,
                const std::vector<double>& activity)
 {
    const auto& objective = mip.getObj();
@@ -274,15 +270,15 @@ maxOutSolution(const MIP& mip,
          if (direction == 1)
          {
             if (!Num::isInf(rhs[row]))
-               absdelta = std::min(
-                 absdelta, (rhs[row] - localact[row]) / std::fabs(coef));
+               absdelta = std::min(absdelta, (rhs[row] - localact[row]) /
+                                                 std::fabs(coef));
          }
          else
          {
             assert(direction == -1);
             if (!Num::isMinusInf(lhs[row]))
-               absdelta = std::min(
-                 absdelta, (localact[row] - lhs[row]) / std::fabs(coef));
+               absdelta = std::min(absdelta, (localact[row] - lhs[row]) /
+                                                 std::fabs(coef));
          }
       }
 
@@ -310,3 +306,17 @@ maxOutSolution(const MIP& mip,
       }
    }
 }
+
+void
+roundFeasIntegers(std::vector<double>& sol,
+                  const dynamic_bitset<>& integer)
+{
+   assert(sol.size() == integer.size());
+
+   for (size_t i = 0; i < sol.size(); ++i)
+   {
+      if (Num::isFeasInt(sol[i]))
+         sol[i] = Num::round(sol[i]);
+   }
+}
+

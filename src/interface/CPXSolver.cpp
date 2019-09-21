@@ -26,8 +26,8 @@ CPXSolver::CPXSolver(const MIP& mip)
       assert(static_cast<size_t>(var) < varNames.size());
       assert(static_cast<size_t>(var) < obj.size());
 
-      variables.add(
-          IloNumVar(env, lb[var], ub[var], varNames[var].c_str()));
+      variables.add(IloNumVar(env, lb[var], ub[var],
+                              ("x" + std::to_string(var)).c_str()));
       objExpr += variables[var] * obj[var];
    }
 
@@ -43,11 +43,27 @@ CPXSolver::CPXSolver(const MIP& mip)
       for (int id = 0; id < rowView.size; ++id)
          rowExpr += rowView.coefs[id] * variables[indices[id]];
 
-      // IloConstraint cons(lhs[row] <= rowExpr <= rhs[row]);
-      constraints.add(lhs[row] <= rowExpr <= rhs[row]);
+      // IloRange cons(lhs[row] <= rowExpr <= rhs[row]);
+      IloRange cons(env, lhs[row], rhs[row]);
+      cons.setName(("c" + std::to_string(row)).c_str());
+      cons.setExpr(rowExpr);
+      assert(cons.getName());
+      constraints.add(cons);
    }
 
    model.add(constraints);
+
+   int id = 0;
+   for (IloIterator<IloRange> it(env); it.ok(); ++it)
+   {
+      IloRange range = *it;
+      const char* name = range.getName();
+      assert(name && std::strlen(name) > 1);
+      int row = std::atoi(name + 1);
+      exidTorowid.emplace(id, row);
+      ++id;
+   }
+
    try
    {
       cplex = model;
@@ -62,15 +78,32 @@ CPXSolver::CPXSolver(const MIP& mip)
 
 CPXSolver::CPXSolver(const CPXSolver& cpxsolver)
     : env(), model(env), variables(env), constraints(env), cplex(env),
-      ncols(cpxsolver.ncols), nrows(cpxsolver.nrows)
+      exidTorowid(cpxsolver.exidTorowid), ncols(cpxsolver.ncols),
+      nrows(cpxsolver.nrows)
 {
    model = cpxsolver.model.getClone(env);
+
+   variables.setSize(ncols);
    for (IloIterator<IloNumVar> it(env); it.ok(); ++it)
-      variables.add(*it);
+   {
+      IloNumVar var = *it;
+      const char* name = var.getName();
+      assert(name && std::strlen(name) > 1);
+      int col = std::atoi(name + 1);
+      variables[col] = var;
+   }
+   assert(variables.getSize() == ncols);
 
+   constraints.setSize(nrows);
+   int id = 0;
    for (IloIterator<IloRange> it(env); it.ok(); ++it)
-      constraints.add(*it);
+   {
+      IloRange range = *it;
+      constraints[exidTorowid[id]] = range;
+      ++id;
+   }
 
+   assert(constraints.getSize() == nrows);
    cplex.extract(model);
    cplex.setOut(env.getNullStream());
 }
@@ -99,18 +132,20 @@ CPXSolver::solve(Algorithm alg)
    {
       result.status = LPResult::OPTIMAL;
 
-      IloNumArray vals(env);
+      IloNumArray prvals(env);
       // get primal vals
-      cplex.getValues(vals, variables);
+      cplex.getValues(prvals, variables);
       for (int i = 0; i < ncols; ++i)
-         result.primalSolution.push_back(vals[i]);
+         result.primalSolution.push_back(prvals[i]);
 
+      IloNumArray duvals(env);
       // get dual vals
-      cplex.getDuals(vals, constraints);
+      cplex.getDuals(duvals, constraints);
       for (int i = 0; i < nrows; ++i)
-         result.dualSolution.push_back(vals[i]);
+         result.dualSolution.push_back(duvals[i]);
 
       result.obj = cplex.getObjValue();
+      result.niter = cplex.getNiterations();
    }
    else if (cpxstatus == IloAlgorithm::Unbounded)
    {

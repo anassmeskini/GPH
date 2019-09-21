@@ -10,7 +10,9 @@
 struct FracDivingSelection
 {
    static std::tuple<int, int, int>
-   select(const MIP& mip, const std::vector<double>& solution)
+   select(const MIP& mip, const std::vector<double>& lb,
+          const std::vector<double>& ub,
+          const std::vector<double>& solution)
    {
       const int ncols = mip.getNCols();
       const auto& integer = mip.getInteger();
@@ -24,6 +26,9 @@ struct FracDivingSelection
 
       for (int col = 0; col < ncols; ++col)
       {
+         if (Num::isFeasEQ(lb[col], ub[col]))
+            continue;
+
          if (integer[col] && !Num::isIntegral(solution[col]))
          {
             ++nFrac;

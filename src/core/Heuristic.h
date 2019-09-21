@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <vector>
 
 #include <tbb/mutex.h>
@@ -88,9 +89,14 @@ class Search
 {
  public:
    Search() = default;
-   Search(std::initializer_list<HeuristicMethod*>);
+   explicit Search(std::initializer_list<HeuristicMethod*>);
 
    void run(const MIP&);
+
+ private:
+   std::tuple<int, int, double, int> getSolSummary() const;
+
+   bool checkSolFeas(const MIP&) const;
 
  private:
    std::vector<std::unique_ptr<HeuristicMethod>> heuristics;

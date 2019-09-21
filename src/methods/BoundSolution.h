@@ -16,6 +16,20 @@ class BoundSolution final : public HeuristicMethod
                SolutionPool&) override;
 
    ~BoundSolution() override = default;
+
+ private:
+   bool tryUBSolution(const MIP&, std::vector<double>& lb,
+                      std::vector<double>& ub,
+                      const std::vector<Activity>& activities) const;
+
+   bool tryLBSolution(const MIP&, std::vector<double>& lb,
+                      std::vector<double>& ub,
+                      const std::vector<Activity>& activities) const;
+
+   bool
+   tryOptimisticSolution(const MIP&, std::vector<double>& lb,
+                         std::vector<double>& ub,
+                         const std::vector<Activity>& activities) const;
 };
 
 #endif

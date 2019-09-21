@@ -11,6 +11,7 @@ file(GLOB SOURCES "src/core/*.cpp"
                   "src/methods/*.cpp")
 
 add_executable(lps "src/main.cpp" ${SOURCES})
+add_executable(unit_test "src/test.cpp" ${SOURCES})
 
 #compiler flags
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
@@ -26,8 +27,8 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Tsan")
    set(ENV{TSAN_OPTIONS} "suppressions=${CMAKE_SOURCE_DIR}/.sanitizer_suppresion_file")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Asan")
    set(CMAKE_BUILD_TYPE "Debug")
-   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-   set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=adress")
+   set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=adress")
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -80,4 +81,9 @@ target_link_libraries(lps PRIVATE
                       ${TBB_IMPORTED_TARGETS}
                       ${LPSOLVER_LIBRARIES})
 
-add_subdirectory(test)
+target_link_libraries(unit_test PRIVATE 
+                      ${TBB_IMPORTED_TARGETS}
+                      ${LPSOLVER_LIBRARIES})
+
+enable_testing()
+add_test(unit_test unit_test)

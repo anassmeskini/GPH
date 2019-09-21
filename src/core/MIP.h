@@ -8,6 +8,12 @@
 #include <string>
 #include <vector>
 
+#ifdef UNIT_TEST
+#define PUBLIC_IF_TEST public:
+#else
+#define PUBLIC_IF_TEST private:
+#endif
+
 enum ConsType
 {
    LESS,
@@ -123,7 +129,8 @@ class MIP
 
    const std::vector<int>& getContVars() const { return continuous; }
 
- private:
+   PUBLIC_IF_TEST
+
    static SparseMatrix transpose(const SparseMatrix&,
                                  const std::vector<int>&);
 

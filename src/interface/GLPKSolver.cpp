@@ -69,12 +69,12 @@ GLPKSolver::GLPKSolver(const MIP& mip)
       glp_set_mat_row(problem, row + 1, rowview.size,
                       ind_buffer.data() - 1, rowview.coefs - 1);
    }
+   glp_term_out(GLP_OFF);
 }
 
 LPResult
 GLPKSolver::solve(Algorithm alg)
 {
-   int ret;
    glp_smcp params;
    glp_init_smcp(&params);
 
@@ -90,7 +90,7 @@ GLPKSolver::solve(Algorithm alg)
       assert(0);
    }
 
-   int ret = glp_simplex(problem, params);
+   int ret = glp_simplex(problem, &params);
 
    LPResult result;
    if (!ret)
@@ -109,6 +109,7 @@ GLPKSolver::solve(Algorithm alg)
             result.dualSolution[j] = glp_get_row_prim(problem, j + 1);
 
          result.obj = glp_get_obj_val(problem);
+         result.niter = glp_get_it_cnt(problem);
          break;
       case GLP_INFEAS:
       case GLP_NOFEAS:
@@ -136,6 +137,7 @@ GLPKSolver::GLPKSolver(const GLPKSolver& glpksolver)
 {
    problem = glp_create_prob();
    glp_copy_prob(problem, glpksolver.problem, GLP_OFF);
+   glp_term_out(GLP_OFF);
    assert(problem);
 }
 
@@ -192,7 +194,7 @@ GLPKSolver::changeBounds(const std::vector<double>& lb,
 }
 
 void
-GLPSolver::changeObjective(int column, double coef)
+GLPKSolver::changeObjective(int column, double coef)
 {
    glp_set_obj_coef(problem, column + 1, coef);
 }

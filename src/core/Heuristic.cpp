@@ -19,6 +19,48 @@ Search::Search(std::initializer_list<HeuristicMethod*> list)
    heuristics_solutions.resize(heuristics.size() + 1);
 }
 
+std::tuple<int, int, double, int>
+Search::getSolSummary() const
+{
+   int min_cost_heur = -1;
+   int min_cost_sol = -1;
+   double min_cost = std::numeric_limits<double>::max();
+   int nsols = 0;
+
+   for (size_t i = 0; i < heuristics_solutions.size(); ++i)
+   {
+      nsols += heuristics_solutions[i].size();
+
+      for (size_t j = 0; j < heuristics_solutions[i].size(); ++j)
+      {
+         if (heuristics_solutions[i][j].second < min_cost)
+         {
+            min_cost = heuristics_solutions[i][j].second;
+            min_cost_heur = i;
+            min_cost_sol = j;
+         }
+      }
+   }
+
+   return {min_cost_heur, min_cost_sol, min_cost, nsols};
+}
+
+bool
+Search::checkSolFeas(const MIP& mip) const
+{
+
+   for (size_t i = 0; i < heuristics_solutions.size(); ++i)
+   {
+      for (size_t j = 0; j < heuristics_solutions[i].size(); ++j)
+      {
+         if (!checkFeasibility(mip, heuristics_solutions[i][j].first, 1e-6,
+                               1e-9))
+            return false;
+      }
+   }
+   return true;
+}
+
 void
 Search::run(const MIP& mip)
 {
@@ -36,6 +78,12 @@ Search::run(const MIP& mip)
    if (result.status != LPResult::OPTIMAL &&
        result.status != LPResult::INFEASIBLE)
       assert(0);
+
+   auto lpFeas = checkFeasibility<double, true>;
+   assert(lpFeas(mip, result.primalSolution, 1e-6, 1e-6));
+
+   roundFeasIntegers(result.primalSolution, mip.getInteger());
+
    //
    // TODO should compute both
    auto lpSolAct = computeSolActivities(mip, result.primalSolution);
@@ -46,7 +94,7 @@ Search::run(const MIP& mip)
    double percfrac = 100.0 * static_cast<double>(fractional.size()) /
                      (st.nbin + st.nint);
    Message::print(
-       "solving lp took {:0.2f} -> {} | obj: {:0.4e} | fractional: "
+       "solving LP took {:0.2f} sec. -> {} | obj: {:0.4e} | fractional: "
        "{} ({:0.1f}%)",
        Timer::seconds(t1, t0), to_str(result.status), result.obj,
        fractional.size(), percfrac);
@@ -71,45 +119,33 @@ Search::run(const MIP& mip)
                      std::move(run));
    auto tend = Timer::now();
 
-   double min_cost = std::numeric_limits<double>::max();
-   std::pair<int, int> min_cost_sol{-1, -1};
-   int nsol = 0;
-   for (size_t i = 0; i < heuristics_solutions.size(); ++i)
+   assert(checkSolFeas(mip));
+
+   auto [min_cost_heur, min_cost_sol, min_cost, nsols] = getSolSummary();
+
+   if (nsols > 0)
    {
-      nsol += heuristics_solutions[i].size();
+      assert(min_cost_sol != -1 && min_cost_heur != -1);
 
-      for (size_t j = 0; j < heuristics_solutions[i].size(); ++j)
-      {
-         if (heuristics_solutions[i][j].second < min_cost)
-         {
-            min_cost = heuristics_solutions[i][j].second;
-            min_cost_sol = {i, j};
-         }
-      }
-   }
-
-   SOLFormat::write(
-       "best.sol",
-       heuristics_solutions[min_cost_sol.first][min_cost_sol.second].first,
-       mip.getVarNames());
-
-   if (min_cost_sol != std::make_pair(-1, -1))
-   {
-      assert(min_cost_sol.first != -1 && min_cost_sol.second != -1);
+      SOLFormat::write(
+          "best.sol",
+          heuristics_solutions[min_cost_heur][min_cost_sol].first,
+          mip.getVarNames());
 
       double gap = 100.0 * std::fabs(min_cost - result.obj) /
-                   (std::fabs(min_cost) + 1e-6);
+                   (std::fabs(result.obj) + 1e-6);
 
-      if (gap < 999.9)
+      if (gap < 10000.0)
          Message::print(
-             "Found {} solutions | gap {:0.2f}% after {:0.2} sec.", nsol,
+             "Found {} solutions | gap {:0.2f}% after {:0.2} sec.", nsols,
              gap, Timer::seconds(tend, t0));
       else
          Message::print("Found {} solutions | gap --- after {:0.2} sec.",
-                        nsol, Timer::seconds(tend, t0));
+                        nsols, Timer::seconds(tend, t0));
    }
    else
-      Message::print("No solution found");
+      Message::print("No solution found after {} sec.",
+                     Timer::seconds(tend, t0));
 
    Message::print("Summary:");
    Message::print("\tRoot: found {} solutions",
@@ -117,7 +153,7 @@ Search::run(const MIP& mip)
    for (size_t i = 0; i < heuristics.size(); ++i)
    {
       std::string best;
-      if (i == static_cast<size_t>(min_cost_sol.first))
+      if (i == static_cast<size_t>(min_cost_heur))
          best = "\t[best]";
       Message::print("\t{}: {:0.1f} sec. found {} solutions {}",
                      heuristics[i]->getName(), heuristics[i]->getRunTime(),

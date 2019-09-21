@@ -66,10 +66,12 @@ SPXSolver::solve(Algorithm alg)
    switch (alg)
    {
    case Algorithm::PRIMAL:
-      mysoplex.setIntParam(IntParam::ALGORITHM, ALGORITHM_PRIMAL);
+      mysoplex.setIntParam(SoPlex::IntParam::ALGORITHM,
+                           SoPlex::ALGORITHM_PRIMAL);
       break;
    case Algorithm::DUAL:
-      mysoplex.setIntParam(IntParam::ALGORITHM, ALGORITHM_DUAL);
+      mysoplex.setIntParam(SoPlex::IntParam::ALGORITHM,
+                           SoPlex::ALGORITHM_DUAL);
       break;
    default:
       assert(0);
@@ -96,6 +98,7 @@ SPXSolver::solve(Algorithm alg)
          result.dualSolution.push_back(dual[i]);
 
       result.obj = mysoplex.objValueReal();
+      result.niter = mysoplex.numIterations();
    }
    else if (stat == SPxSolver::INFEASIBLE)
       result.status = LPResult::INFEASIBLE;

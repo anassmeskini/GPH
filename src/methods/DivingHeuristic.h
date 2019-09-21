@@ -3,18 +3,13 @@
 
 #include "core/Heuristic.h"
 #include "core/MIP.h"
+#include "core/Propagation.h"
 #include "io/Message.h"
 
-std::string
-operator+(std::string_view str1, const char* str2)
+static std::string
+operator+(std::string_view str1, std::string_view str2)
 {
-   return std::string(str1) + str2;
-}
-
-std::string
-operator+(std::string_view str1, const std::string& str2)
-{
-   return std::string(str1) + str2;
+   return std::string(str1) + std::string(str2);
 }
 
 // TODO better stopping criteria
@@ -32,7 +27,8 @@ class DivingHeuristic : public HeuristicMethod
                const std::vector<Activity>& activities,
                const LPResult& result, const std::vector<double>&,
                const std::vector<int>& fractional,
-               std::shared_ptr<const LPSolver> solver, SolutionPool& pool)
+               std::shared_ptr<const LPSolver> solver,
+               SolutionPool& pool) override
    {
       int ncols = mip.getNCols();
       const auto& integer = mip.getInteger();
@@ -40,7 +36,6 @@ class DivingHeuristic : public HeuristicMethod
       const auto& downLocks = mip.getDownLocks();
       const auto& upLocks = mip.getUpLocks();
 
-      // try solution = lower bound
       auto local_activities = activities;
       auto locallb = lb;
       auto localub = ub;
@@ -54,23 +49,34 @@ class DivingHeuristic : public HeuristicMethod
       bool feasible = true;
       int iter = 0;
 
+      std::vector<int> buffer;
+
       bool hasZeroLockFractionals = false;
+      int prev_simplex_iter = -1;
+      bool limit_reached = false;
       do
       {
          ++iter;
+         prev_simplex_iter = result.niter;
+
          auto [varToFix, direction, nFrac] =
-             SELECTION::select(mip, localsol);
+             SELECTION::select(mip, locallb, localub, localsol);
 
          Message::debug_details("{}: iter {}, nFrac {}", heur_name, iter,
                                 nFrac);
 
-         // TODO
          if (varToFix < 0)
          {
             if (nFrac > 0)
                hasZeroLockFractionals = true;
+            else
+               assert(checkFeasibility<double>(mip, localsol, 1e-9, 1e-6));
+
             break;
          }
+
+         double oldlb = locallb[varToFix];
+         double oldub = localub[varToFix];
 
          if (Num::isMinusInf(locallb[varToFix]) ||
              Num::isInf(localub[varToFix]))
@@ -87,31 +93,50 @@ class DivingHeuristic : public HeuristicMethod
             localub[varToFix] = locallb[varToFix];
          }
 
-         Message::debug_details("{}: fixed var {} -> {}", heur_name,
-                                varToFix, locallb[varToFix]);
+         bool status = propagate_get_changed_cols(
+             mip, locallb, localub, local_activities, varToFix, oldlb,
+             oldub, buffer);
 
-         --nFrac;
+         Message::debug_details(
+             "{}: fixed var {} -> {}, propagation: {} changed {}",
+             heur_name, varToFix, locallb[varToFix], status,
+             buffer.size());
 
-         // TODO propagate
+         if (!status)
+         {
+            feasible = false;
+            break;
+         }
 
          assert(locallb[varToFix] == localub[varToFix]);
-         localsolver->changeBounds(varToFix, locallb[varToFix],
-                                   localub[varToFix]);
-         auto res = localsolver->solve(Algorithm::DUAL);
 
-         if (res.status != LPResult::OPTIMAL)
+         for (auto col : buffer)
+            localsolver->changeBounds(col, locallb[col], localub[col]);
+         buffer.clear();
+
+         auto local_result = localsolver->solve(Algorithm::DUAL);
+
+         if (local_result.status != LPResult::OPTIMAL)
             feasible = false;
          else
          {
-            localsol = std::move(res.primalSolution);
-            localobj = res.obj;
+            localsol = std::move(local_result.primalSolution);
+            localobj = local_result.obj;
 
+            roundFeasIntegers(localsol, integer);
+
+            auto checklpFeas = checkFeasibility<double, true>;
+            assert(checklpFeas(mip, localsol, 1e-9, 1e-6));
             assert(Num::isFeasEQ(localsol[varToFix], locallb[varToFix]));
          }
 
-      } while (feasible && iter < ncols / 4);
+         if (iter > ncols * iter_per_col_max ||
+             result.niter > simplex_iter_growth_max * prev_simplex_iter)
+            limit_reached = true;
 
-      if (feasible && hasZeroLockFractionals)
+      } while (feasible && !limit_reached);
+
+      if (feasible && !limit_reached && hasZeroLockFractionals)
       {
          localobj = 0.0;
 
@@ -132,12 +157,14 @@ class DivingHeuristic : public HeuristicMethod
 
             localobj += objective[col] * (localsol[col] - oldval);
          }
-      }
 
-      if (feasible)
-      {
-         // pool.add(std::move(localsol), localobj);
          Message::debug("{}: found solution val {}", heur_name, localobj);
+         pool.add(std::move(localsol), localobj);
+      }
+      else if (feasible && !limit_reached)
+      {
+         Message::debug("{}: found solution val {}", heur_name, localobj);
+         assert(checkFeasibility<double>(mip, localsol, 1e-6, 1e-6));
          pool.add(std::move(localsol), localobj);
       }
       else
@@ -146,6 +173,10 @@ class DivingHeuristic : public HeuristicMethod
                         iter);
       }
    }
+
+ private:
+   constexpr static double iter_per_col_max = 0.25;
+   constexpr static double simplex_iter_growth_max = 1.05;
 };
 
 #endif
