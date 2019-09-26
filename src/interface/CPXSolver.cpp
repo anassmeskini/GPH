@@ -31,6 +31,7 @@ CPXSolver::CPXSolver(const MIP& mip)
       objExpr += variables[var] * obj[var];
    }
 
+   assert(variables.getSize() == ncols);
    objective = IloMinimize(env, objExpr);
    model.add(objective);
 
@@ -77,9 +78,9 @@ CPXSolver::CPXSolver(const MIP& mip)
 }
 
 CPXSolver::CPXSolver(const CPXSolver& cpxsolver)
-    : env(), model(env), variables(env), constraints(env), cplex(env),
-      exidTorowid(cpxsolver.exidTorowid), ncols(cpxsolver.ncols),
-      nrows(cpxsolver.nrows)
+    : env(), model(env), objective(env), variables(env), constraints(env),
+      cplex(env), exidTorowid(cpxsolver.exidTorowid),
+      ncols(cpxsolver.ncols), nrows(cpxsolver.nrows)
 {
    model = cpxsolver.model.getClone(env);
 
@@ -102,6 +103,9 @@ CPXSolver::CPXSolver(const CPXSolver& cpxsolver)
       constraints[exidTorowid[id]] = range;
       ++id;
    }
+
+   for (IloIterator<IloObjective> it(env); it.ok(); ++it)
+      objective = *it;
 
    assert(constraints.getSize() == nrows);
    cplex.extract(model);
@@ -132,6 +136,8 @@ CPXSolver::solve(Algorithm alg)
    {
       result.status = LPResult::OPTIMAL;
 
+      // TODO: if a variable is not in the constraints or the objective
+      // cplex will throw a IloAlgorithm::NotExtractedException
       IloNumArray prvals(env);
       // get primal vals
       cplex.getValues(prvals, variables);

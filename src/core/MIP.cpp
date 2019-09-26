@@ -126,6 +126,12 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
    stats.ncols = ncols;
    stats.nrows = nrows;
 
+   for (int col = 0; col < ncols; ++col)
+   {
+      if (constMatrixT.rowStart[col + 1] == constMatrixT.rowStart[col])
+         Message::warn("column {} has zero support", col);
+   }
+
    // get the row-major matrix by transposing
    constMatrix = transpose(constMatrixT, rowSize);
 
