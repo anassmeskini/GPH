@@ -130,7 +130,7 @@ getFractional(const std::vector<double>& sol,
 }
 
 std::vector<int>
-getIndentity(int ncols)
+getIdentity(int ncols)
 {
    std::vector<int> identity(ncols);
 
@@ -315,7 +315,7 @@ roundFeasIntegers(std::vector<double>& sol,
 
    for (size_t i = 0; i < sol.size(); ++i)
    {
-      if (Num::isFeasInt(sol[i]))
+      if (integer[i] && Num::isFeasInt(sol[i]))
          sol[i] = Num::round(sol[i]);
    }
 }

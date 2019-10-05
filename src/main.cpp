@@ -17,6 +17,7 @@
 #include "methods/IntShifting.h"
 #include "methods/MinFracRounding.h"
 #include "methods/MinLockRounding.h"
+#include "methods/Octane.h"
 #include "methods/Shifting.h"
 #include "methods/VecLengthDiving.h"
 

@@ -39,7 +39,7 @@ std::vector<int>
 getFractional(const std::vector<double>&, const dynamic_bitset<>&);
 
 std::vector<int>
-getIndentity(int ncols);
+getIdentity(int ncols);
 
 template <typename REAL, bool LP = false>
 bool
@@ -130,7 +130,7 @@ template <typename COMP>
 void
 sortRows(SparseMatrix& mat, COMP&& comp)
 {
-   const std::vector<int> identity = getIndentity(mat.ncols);
+   const std::vector<int> identity = getIdentity(mat.ncols);
    std::vector<int> permutation;
    std::vector<int> indcopy;
    std::vector<double> coefcopy;
@@ -203,13 +203,15 @@ roundFeasIntegers(std::vector<double>& sol,
                   const dynamic_bitset<>& integer);
 
 template <typename T, typename PREDICATE>
-bool all_of(const std::vector<T>& v1, const std::vector<T>& v2, PREDICATE&& pred)
+bool
+all_of(const std::vector<T>& v1, const std::vector<T>& v2,
+       PREDICATE&& pred)
 {
    assert(v1.size() == v2.size());
 
-   for(size_t i = 0; i < v1.size(); ++i)
+   for (size_t i = 0; i < v1.size(); ++i)
    {
-      if(!pred(v1[i], v2[i]))
+      if (!pred(v1[i], v2[i]))
          return false;
    }
    return true;
