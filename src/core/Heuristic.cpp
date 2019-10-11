@@ -48,14 +48,17 @@ Search::getSolSummary() const
 bool
 Search::checkSolFeas(const MIP& mip) const
 {
-
    for (size_t i = 0; i < heuristics_solutions.size(); ++i)
    {
       for (size_t j = 0; j < heuristics_solutions[i].size(); ++j)
       {
          if (!checkFeasibility(mip, heuristics_solutions[i][j].first, 1e-6,
                                1e-9))
+         {
+            Message::debug("{} solution number {} is INFEASIBLE",
+                           heuristics[i]->getName(), j);
             return false;
+         }
       }
    }
    return true;
@@ -64,7 +67,7 @@ Search::checkSolFeas(const MIP& mip) const
 void
 Search::run(const MIP& mip)
 {
-   auto st = mip.getStatistics();
+   auto st = mip.getStats();
    auto lpSolver = std::make_shared<MySolver>(mip);
 
    // variables to be captured by the lambda
@@ -80,24 +83,25 @@ Search::run(const MIP& mip)
       assert(0);
 
    auto lpFeas = checkFeasibility<double, true>;
-   assert(lpFeas(mip, result.primalSolution, 1e-6, 1e-6));
+   assert(lpFeas(mip, result.primalSolution, 1e-9, 1e-6));
 
-   roundFeasIntegers(result.primalSolution, mip.getInteger());
+   roundFeasIntegers(result.primalSolution, st.nbin + st.nint);
 
    //
    // TODO should compute both
    auto lpSolAct = computeSolActivities(mip, result.primalSolution);
    auto fractional =
-       getFractional(result.primalSolution, mip.getInteger());
+       getFractional(result.primalSolution, st.nbin + st.nint);
    auto activities = computeActivities(mip);
 
    double percfrac = 100.0 * static_cast<double>(fractional.size()) /
                      (st.nbin + st.nint);
-   Message::print(
-       "solving LP took {:0.2f} sec. -> {} | obj: {:0.4e} | fractional: "
-       "{} ({:0.1f}%)",
-       Timer::seconds(t1, t0), to_str(result.status), result.obj,
-       fractional.size(), percfrac);
+   Message::print("solving LP took {:0.2f} sec. npivots {} -> {} | obj: "
+                  "{:0.4e} | fractional: "
+                  "{} ({:0.1f}%)",
+                  Timer::seconds(t1, t0), result.niter,
+                  to_str(result.status), result.obj, fractional.size(),
+                  percfrac);
 
    if (auto optSol = minLockRound(mip, result.primalSolution, result.obj,
                                   fractional))

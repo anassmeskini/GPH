@@ -65,7 +65,7 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
       if (!feasible[i])
          continue;
 
-      if (mip.getStatistics().ncont == 0)
+      if (mip.getStats().ncont == 0)
       {
          Message::debug("Bnd: found a solution");
 
@@ -105,15 +105,14 @@ BoundSolution::tryUBSolution(const MIP& mip, std::vector<double>& locallb,
                              std::vector<double>& localub,
                              const std::vector<Activity>& activities) const
 {
-   int ncols = mip.getNCols();
-   const auto& integer = mip.getInteger();
+   auto st = mip.getStats();
 
    auto local_activities = activities;
 
    std::vector<int> inflbIntVars;
-   for (int col = 0; col < ncols; ++col)
+   for (int col = 0; col < st.nbin + st.nint; ++col)
    {
-      if (integer[col] && locallb[col] != localub[col])
+      if (locallb[col] != localub[col])
       {
          if (Num::isMinusInf(locallb[col]))
          {
@@ -164,15 +163,14 @@ BoundSolution::tryLBSolution(const MIP& mip, std::vector<double>& locallb,
                              std::vector<double>& localub,
                              const std::vector<Activity>& activities) const
 {
-   int ncols = mip.getNCols();
-   const auto& integer = mip.getInteger();
+   auto st = mip.getStats();
 
    auto local_activities = activities;
 
    std::vector<int> infubIntVars;
-   for (int col = 0; col < ncols; ++col)
+   for (int col = 0; col < st.nbin + st.nint; ++col)
    {
-      if (integer[col] && locallb[col] != localub[col])
+      if (locallb[col] != localub[col])
       {
          if (Num::isInf(localub[col]))
          {
@@ -223,18 +221,17 @@ BoundSolution::tryOptimisticSolution(
     std::vector<double>& localub,
     const std::vector<Activity>& activities) const
 {
-   int ncols = mip.getNCols();
    const auto& objective = mip.getObj();
-   const auto& integer = mip.getInteger();
+   auto st = mip.getStats();
    const auto& downLocks = mip.getDownLocks();
    const auto& upLocks = mip.getUpLocks();
 
    auto local_activities = activities;
    std::vector<int> varsToRound;
 
-   for (int col = 0; col < ncols; ++col)
+   for (int col = 0; col < st.nbin + st.nint; ++col)
    {
-      if (integer[col] && locallb[col] != localub[col])
+      if (locallb[col] != localub[col])
       {
          double oldlb = locallb[col];
          double oldub = localub[col];
@@ -295,8 +292,6 @@ BoundSolution::tryOptimisticSolution(
 
    for (int col : varsToRound)
    {
-      assert(integer[col]);
-
       bool lbinf = Num::isMinusInf(locallb[col]);
       bool ubinf = Num::isInf(localub[col]);
 

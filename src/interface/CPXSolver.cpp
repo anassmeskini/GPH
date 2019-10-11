@@ -18,12 +18,10 @@ CPXSolver::CPXSolver(const MIP& mip)
    const auto& lhs = mip.getLHS();
    const auto& rhs = mip.getRHS();
 
-   const auto& varNames = mip.getVarNames();
-
    // add variables to the model and build the objective expression
    for (int var = 0; var < mip.getNCols(); ++var)
    {
-      assert(static_cast<size_t>(var) < varNames.size());
+      assert(static_cast<size_t>(var) < mip.getVarNames().size());
       assert(static_cast<size_t>(var) < obj.size());
 
       variables.add(IloNumVar(env, lb[var], ub[var],

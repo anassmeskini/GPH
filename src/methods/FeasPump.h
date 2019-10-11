@@ -59,16 +59,14 @@ class FeasPump : public HeuristicMethod
    }
 
    void handle_one_cycle(std::vector<double>&, const std::vector<double>&,
-                         const dynamic_bitset<>&,
                          const std::vector<double>&,
                          const std::vector<double>&, int);
 
    void make_rand_perturbation(std::vector<double>&,
-                               const std::vector<double>&,
-                               const dynamic_bitset<>&,
+                               const std::vector<double>&, int,
                                const std::vector<double>&);
 
-   double get_frac(const std::vector<double>&, const dynamic_bitset<>&);
+   double get_frac(const std::vector<double>&, int);
 };
 
 #endif

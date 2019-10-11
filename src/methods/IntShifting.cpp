@@ -16,8 +16,9 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
 {
    // if there is no continuous variables
    // this heuristic es equal to shifting
-   auto stats = mip.getStatistics();
-   if (stats.ncont == 0)
+
+   auto st = mip.getStats();
+   if (st.ncont == 0)
       return;
 
    int nrows = mip.getNRows();
@@ -27,7 +28,6 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
    const auto& rhs = mip.getRHS();
    const auto& upLocks = mip.getUpLocks();
    const auto& downLocks = mip.getDownLocks();
-   const auto& integer = mip.getInteger();
 
    std::unique_ptr<LPSolver> localsolver;
 
@@ -45,8 +45,10 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
          int col = rowindices[id];
          int coef = rowcoefs[id];
 
-         if (integer[col])
+         if (col < st.nbin + st.nint)
             continue;
+
+         assert(col >= st.nbin + st.nint);
 
          if (coef > 0.0)
          {
@@ -89,11 +91,13 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
 
    // compute the solution activities that ignores continuous activities
    auto intSolAct = solAct;
-   const auto& contVars = mip.getContVars();
-   for (auto col : contVars)
+   auto intSol = result.primalSolution;
+   for (int col = st.nbin + st.nint; col < ncols; ++col)
    {
       auto [colcoefs, colindices, colsize] = mip.getCol(col);
       double solval = result.primalSolution[col];
+
+      intSol[col] = 0.0;
 
       for (int id = 0; id < colsize; ++id)
       {
@@ -109,7 +113,7 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
    do
    {
       auto solActivity = intSolAct;
-      auto solution = result.primalSolution;
+      auto solution = intSol;
       auto fracPermutation = fractional;
 
       switch (ordering)
@@ -150,14 +154,13 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
 
       for (int i = 0; i < static_cast<int>(fractional.size()); ++i)
       {
-         int nviolated = 0;
          std::vector<int> violatedRows;
          dynamic_bitset<> isviolated(nrows, false);
          violatedRows.reserve(nrows);
 
          int col = fracPermutation[i];
 
-         assert(integer[col]);
+         assert(col < st.nbin + st.nint);
          if (Num::isIntegral(solution[col]))
             continue;
 
@@ -167,7 +170,7 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
          else
             solution[col] = Num::ceil(solution[col]);
 
-         nviolated += updateSolActivity(
+         int nviolated = updateSolActivity(
              solActivity, mip.getCol(col), locallhs, localrhs,
              solution[col] - oldval, violatedRows, isviolated);
 
@@ -202,7 +205,7 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
 
             auto [rowcoefs, rowindices, rowsize] = mip.getRow(row);
 
-            violatedRows.clear();
+            // violatedRows.clear();
             bool row_corrected = false;
 
             // first try: only fix integer fractional variables
@@ -213,8 +216,8 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
                double oldnval = solution[ncol];
 
                // skip non fractional and cont variables
-               if (!integer[ncol] ||
-                   (integer[ncol] && Num::isIntegral(solution[ncol])))
+               if (ncol >= st.nbin + st.nint ||
+                   Num::isIntegral(solution[ncol]))
                   continue;
 
                if (!Num::isFeasGE(solActivity[row], locallhs[row]))
@@ -252,9 +255,11 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
                                          nviolated);
                }
 
+#ifndef NDEBUG
                auto act = computeSolActivities(mip, solution);
                for (int lrow = 0; lrow < nrows; ++lrow)
                   assert(std::fabs(solActivity[lrow] - act[lrow]) < 1e-6);
+#endif
 
                if (Num::isFeasGE(solActivity[row], locallhs[row]) &&
                    Num::isFeasLE(solActivity[row], localrhs[row]))
@@ -275,7 +280,7 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
                double ncoef = rowcoefs[k];
                double oldnval = solution[ncol];
 
-               if (!integer[ncol] || ncol == col)
+               if (ncol >= st.nbin + st.nint || ncol == col)
                   continue;
 
                if (!Num::isFeasGE(solActivity[row], locallhs[row]))
@@ -327,7 +332,8 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
                   Message::debug_details(
                       "ShifInt: changed col {} (int? {}, coef "
                       "{})  value from {} -> {}",
-                      ncol, integer[ncol], ncoef, oldnval, solution[ncol]);
+                      ncol, ncol < st.nbin + st.nint, ncoef, oldnval,
+                      solution[ncol]);
 
                   nviolated += updateSolActivity(
                       solActivity, mip.getCol(ncol), locallhs, localrhs,
@@ -372,14 +378,10 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
          if (!localsolver)
             localsolver = lpsolver->clone();
 
-         for (int col = 0; col < ncols; ++col)
+         for (int col = 0; col < st.nbin + st.nint; ++col)
          {
-            if (integer[col])
-            {
-               assert(Num::isIntegral(solution[col]));
-               localsolver->changeBounds(col, solution[col],
-                                         solution[col]);
-            }
+            assert(Num::isIntegral(solution[col]));
+            localsolver->changeBounds(col, solution[col], solution[col]);
          }
 
          auto local_result = localsolver->solve(Algorithm::DUAL);

@@ -16,7 +16,7 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
 {
    int ncols = mip.getNCols();
 
-   const auto& integer = mip.getInteger();
+   auto st = mip.getStats();
    const auto& objective = mip.getObj();
 
    std::unique_ptr<LPSolver> localsolver;
@@ -24,7 +24,7 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
    auto solution = result.primalSolution;
 
    auto process_sol = [&](std::vector<double>& sol) {
-      if (mip.getStatistics().ncont == 0)
+      if (mip.getStats().ncont == 0)
       {
          Message::debug("FracRound: feasible, no continuous variables");
          double cost = 0.0;
@@ -39,10 +39,9 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
          if (!localsolver)
             localsolver = solver->clone();
 
-         for (int col = 0; col < ncols; ++col)
+         for (int col = 0; col < st.nbin + st.nint; ++col)
          {
-            if (integer[col])
-               localsolver->changeBounds(col, sol[col], sol[col]);
+            localsolver->changeBounds(col, sol[col], sol[col]);
          }
 
          auto res = localsolver->solve(Algorithm::DUAL);
@@ -61,7 +60,7 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
 
       double floor = Num::floor(solution[col]);
       double frac = solution[col] - floor;
-      assert(integer[col] && frac > 0.0);
+      assert(col < st.nbin + st.nint && frac > 0.0);
 
       solution[col] =
           floor + (frac > 0.5) + (frac == 0.5 && objective[col] < 0.0);
@@ -80,9 +79,9 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
    auto local_activities = activities;
    bool feasible = true;
 
-   for (int col = 0; col < ncols && feasible; ++col)
+   for (int col = 0; col < st.nbin + st.nint && feasible; ++col)
    {
-      if (integer[col] && !Num::isFeasEQ(locallb[col], localub[col]))
+      if (!Num::isFeasEQ(locallb[col], localub[col]))
       {
          double oldlb = locallb[col];
          double oldub = localub[col];

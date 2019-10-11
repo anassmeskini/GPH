@@ -26,7 +26,11 @@ class Octane : public HeuristicMethod
       AVERAGE,
    };
 
+#ifndef NDEBUG
+   using Bitset = std::vector<bool>;
+#else
    using Bitset = dynamic_bitset<>;
+#endif
 
    struct FacetInfo
    {
@@ -70,7 +74,7 @@ class Octane : public HeuristicMethod
    constexpr static int fmax = 100;
    constexpr static int candidate_max = 5000;
    constexpr static bool use_frac_subspace = true;
-   constexpr static bool scale_ray = false;
+   constexpr static bool scale_ray = true;
 };
 
 #endif

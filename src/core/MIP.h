@@ -79,16 +79,16 @@ class MIP
        std::vector<int>&& idxT, std::vector<int>&& rstartT,
        std::vector<double>&& rhs, std::vector<double>&& lhs,
        std::vector<double>&& lbs, std::vector<double>&& ubs,
-       std::vector<double>&& obj, dynamic_bitset<>&& integer,
+       std::vector<double>&& obj, const dynamic_bitset<>& integer,
        std::vector<int>& rowSize, std::vector<std::string>&& colNames);
 
    MIP(MIP&&) = default;
 
    MIP& operator=(MIP&&) noexcept;
 
-   int getNCols() const { return constMatrixT.nrows; }
+   int getNCols() const { return stats.ncols; }
 
-   int getNRows() const { return constMatrix.nrows; }
+   int getNRows() const { return stats.nrows; }
 
    const std::vector<double>& getObj() const { return objective; }
 
@@ -99,8 +99,6 @@ class MIP
    const std::vector<double>& getLHS() const { return lhs; }
 
    const std::vector<double>& getRHS() const { return rhs; }
-
-   const dynamic_bitset<>& getInteger() const { return integer; }
 
    const std::vector<std::string>& getVarNames() const { return varNames; }
 
@@ -121,13 +119,7 @@ class MIP
 
    const std::vector<int>& getDownLocks() const { return downLocks; }
 
-   Statistics getStatistics() const { return stats; }
-
-   const std::vector<int>& getBinaryVars() const { return binary; }
-
-   const std::vector<int>& getIntVars() const { return generalInt; }
-
-   const std::vector<int>& getContVars() const { return continuous; }
+   Statistics getStats() const { return stats; }
 
    PUBLIC_IF_TEST
 
@@ -156,10 +148,6 @@ class MIP
    SparseMatrix constMatrixT;
 
    dynamic_bitset<> integer;
-
-   std::vector<int> binary;
-   std::vector<int> generalInt;
-   std::vector<int> continuous;
 
    std::vector<int> downLocks;
    std::vector<int> upLocks;

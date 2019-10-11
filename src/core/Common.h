@@ -36,7 +36,7 @@ updateSolActivity(std::vector<double>&, VectorView,
                   double, std::vector<int>&, dynamic_bitset<>&);
 
 std::vector<int>
-getFractional(const std::vector<double>&, const dynamic_bitset<>&);
+getFractional(const std::vector<double>&, int ninteger);
 
 std::vector<int>
 getIdentity(int ncols);
@@ -50,7 +50,7 @@ checkFeasibility(const MIP& mip, const std::vector<double>& sol,
    const auto& lb = mip.getLB();
    const auto& lhs = mip.getLHS();
    const auto& rhs = mip.getRHS();
-   const auto& integer = mip.getInteger();
+   auto st = mip.getStats();
 
    assert(sol.size() == static_cast<size_t>(mip.getNCols()));
 
@@ -62,7 +62,7 @@ checkFeasibility(const MIP& mip, const std::vector<double>& sol,
 
       if constexpr (!LP)
       {
-         if (integer[colid] && !Num::isFeasInt(sol[colid]))
+         if (colid < st.nbin + st.nint && !Num::isFeasInt(sol[colid]))
             return false;
       }
    }
@@ -92,7 +92,7 @@ getNViolated(const MIP& mip, const std::vector<double>& sol,
    const auto& lb = mip.getLB();
    const auto& lhs = mip.getLHS();
    const auto& rhs = mip.getRHS();
-   const auto& integer = mip.getInteger();
+   auto st = mip.getStats();
 
    assert(sol.size() == static_cast<size_t>(mip.getNCols()));
 
@@ -105,7 +105,7 @@ getNViolated(const MIP& mip, const std::vector<double>& sol,
 
       if constexpr (!LP)
       {
-         if (integer[colid] && !Num::isFeasInt(sol[colid]))
+         if (colid < st.nbin + st.nint && !Num::isFeasInt(sol[colid]))
             ++ninfeas;
       }
    }
@@ -179,7 +179,7 @@ bool
 hasZeroLockRounding(const std::vector<double>&, // lp solution
                     const std::vector<int>&,    // down locks
                     const std::vector<int>&,    // up locks
-                    const dynamic_bitset<>&);   // is integer
+                    int ninteger);              // nb integers
 
 // assumes the solution has a zero lock rounding
 // returns the diff in the cost
@@ -199,8 +199,7 @@ void
 maxOutSolution(const MIP& mip, std::vector<double>& solution,
                const std::vector<double>& activity);
 void
-roundFeasIntegers(std::vector<double>& sol,
-                  const dynamic_bitset<>& integer);
+roundFeasIntegers(std::vector<double>& sol, int ninteger);
 
 template <typename T, typename PREDICATE>
 bool

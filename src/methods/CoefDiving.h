@@ -14,8 +14,7 @@ struct CoefDivingSelection
           const std::vector<double>& ub,
           const std::vector<double>& solution)
    {
-      const int ncols = mip.getNCols();
-      const auto& integer = mip.getInteger();
+      auto st = mip.getStats();
       const auto& downLocks = mip.getDownLocks();
       const auto& upLocks = mip.getUpLocks();
 
@@ -24,13 +23,12 @@ struct CoefDivingSelection
       int minNLocks = std::numeric_limits<int>::max();
       int nFrac = 0;
 
-      // TODO skip fixed vars
-      for (int col = 0; col < ncols; ++col)
+      for (int col = 0; col < st.nbin + st.nint; ++col)
       {
          if (Num::isFeasEQ(lb[col], ub[col]))
             continue;
 
-         if (integer[col] && !Num::isIntegral(solution[col]))
+         if (!Num::isIntegral(solution[col]))
          {
             ++nFrac;
             if (std::min(downLocks[col], upLocks[col]) == 0)
@@ -55,7 +53,7 @@ struct CoefDivingSelection
       return {varToFix, direction, nFrac};
    }
 
-   static constexpr std::string_view name{"Coef"};
+   static constexpr std::string_view name = "Coef";
 };
 
 using CoefDiving = DivingHeuristic<CoefDivingSelection>;

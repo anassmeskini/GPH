@@ -112,17 +112,15 @@ updateSolActivity(std::vector<double>& activities, VectorView colview,
 }
 
 std::vector<int>
-getFractional(const std::vector<double>& sol,
-              const dynamic_bitset<>& integer)
+getFractional(const std::vector<double>& sol, int ninteger)
 {
-   assert(sol.size() == integer.size());
    int ncols = sol.size();
    std::vector<int> fractional;
    fractional.reserve(ncols);
 
-   for (int col = 0; col < ncols; ++col)
+   for (int col = 0; col < ninteger; ++col)
    {
-      if (integer[col] && !Num::isIntegral(sol[col]))
+      if (!Num::isIntegral(sol[col]))
          fractional.push_back(col);
    }
 
@@ -155,12 +153,12 @@ hasZeroLockRounding(const std::vector<int>& downLocks,
 bool
 hasZeroLockRounding(const std::vector<double>& solution,
                     const std::vector<int>& downLocks,
-                    const std::vector<int>& upLocks,
-                    const dynamic_bitset<>& integer)
+                    const std::vector<int>& upLocks, int ninteger)
 {
-   for (size_t col = 0; col < solution.size(); ++col)
+   assert(ninteger <= static_cast<int>(solution.size()));
+   for (int col = 0; col < ninteger; ++col)
    {
-      if (integer[col] && !Num::isIntegral(solution[col]))
+      if (!Num::isIntegral(solution[col]))
       {
          if (downLocks[col] && upLocks[col])
             return false;
@@ -241,81 +239,11 @@ minLockRound(const MIP& mip, const std::vector<double>& solution,
 }
 
 void
-maxOutSolution(const MIP& mip, std::vector<double>& solution,
-               const std::vector<double>& activity)
+roundFeasIntegers(std::vector<double>& sol, int ninteger)
 {
-   const auto& objective = mip.getObj();
-   const auto& lhs = mip.getLHS();
-   const auto& rhs = mip.getRHS();
-   const auto& integer = mip.getInteger();
-
-   auto localact = activity;
-
-   for (size_t col = 0; col < solution.size(); ++col)
+   for (int i = 0; i < ninteger; ++i)
    {
-      if (objective[col] == 0.0)
-         continue;
-
-      int objsens = 1 - 2 * (objective[col] < 0.0);
-      auto [colcoefs, colindices, colsize] = mip.getCol(col);
-
-      double absdelta = objsens * Num::infval;
-      for (int id = 0; id < colsize; ++id)
-      {
-         int row = colindices[id];
-         double coef = colcoefs[id];
-
-         int direction = objsens * (1 - 2 * (coef < 0.0));
-
-         if (direction == 1)
-         {
-            if (!Num::isInf(rhs[row]))
-               absdelta = std::min(absdelta, (rhs[row] - localact[row]) /
-                                                 std::fabs(coef));
-         }
-         else
-         {
-            assert(direction == -1);
-            if (!Num::isMinusInf(lhs[row]))
-               absdelta = std::min(absdelta, (localact[row] - lhs[row]) /
-                                                 std::fabs(coef));
-         }
-      }
-
-      if (absdelta < 1e-6)
-         continue;
-
-      double oldval = solution[col];
-      solution[col] += objsens * absdelta;
-
-      if (integer[col])
-      {
-         if (objsens == 1)
-            solution[col] = Num::floor(solution[col]);
-         else
-            solution[col] = Num::ceil(solution[col]);
-      }
-
-      // update the activity
-      for (int id = 0; id < colsize; ++id)
-      {
-         int row = colindices[id];
-         double coef = colcoefs[id];
-
-         localact[row] += coef * (solution[col] - oldval);
-      }
-   }
-}
-
-void
-roundFeasIntegers(std::vector<double>& sol,
-                  const dynamic_bitset<>& integer)
-{
-   assert(sol.size() == integer.size());
-
-   for (size_t i = 0; i < sol.size(); ++i)
-   {
-      if (integer[i] && Num::isFeasInt(sol[i]))
+      if (Num::isFeasInt(sol[i]))
          sol[i] = Num::round(sol[i]);
    }
 }

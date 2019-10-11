@@ -17,13 +17,13 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
 {
    int nrows = mip.getNRows();
    int ncols = mip.getNCols();
-   int ncont = mip.getStatistics().ncont;
+   int ncont = mip.getStats().ncont;
 
    const auto& lhs = mip.getLHS();
    const auto& rhs = mip.getRHS();
    const auto& upLocks = mip.getUpLocks();
    const auto& downLocks = mip.getDownLocks();
-   const auto& integer = mip.getInteger();
+   auto st = mip.getStats();
    const auto& objective = mip.getObj();
 
    std::unique_ptr<LPSolver> localsolver;
@@ -69,7 +69,7 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
          int nviolated = 0;
 
          int col = fracPermutation[i];
-         assert(integer[col]);
+         assert(col < st.nbin + st.nint);
 
          // if it was set to an integer value in
          // the correction phase
@@ -129,12 +129,13 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                double oldnval = solution[ncol];
 
                // check if fractional
-               if (integer[ncol] && Num::isIntegral(solution[ncol]))
+               if (ncol < st.nbin + st.nint &&
+                   Num::isIntegral(solution[ncol]))
                   continue;
 
                if (!Num::isFeasGE(solActivity[row], lhs[row]))
                {
-                  if (integer[ncol])
+                  if (ncol < st.nbin + st.nint)
                   {
                      if (ncoef > 0.0)
                         solution[ncol] = Num::ceil(solution[ncol]);
@@ -157,7 +158,7 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                {
                   assert(!Num::isFeasLE(solActivity[row], rhs[row]));
 
-                  if (integer[ncol])
+                  if (ncol < st.nbin + st.nint)
                   {
                      if (ncoef > 0.0)
                         solution[ncol] = Num::floor(solution[ncol]);
@@ -182,9 +183,10 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                   Message::debug_details(
                       "Round: changed col {} (int?: {}, "
                       "coef {})  value from {} -> {}",
-                      ncol, integer[ncol], ncoef, oldnval, solution[ncol]);
+                      ncol, col < st.nbin + st.nint, ncoef, oldnval,
+                      solution[ncol]);
 
-                  if (!integer[ncol])
+                  if (ncol >= st.nbin + st.nint)
                      ++ncontchanges;
 
                   nviolated += updateSolActivity(
@@ -226,7 +228,7 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
       {
          Message::debug("Round: feasible");
 
-         if (mip.getStatistics().ncont == 0)
+         if (ncont == 0)
          {
             Message::debug("Round: 0 cont");
             assert(checkFeasibility<double>(mip, solution));
@@ -242,14 +244,11 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
             if (!localsolver)
                localsolver = lpsolver->clone();
 
-            for (int col = 0; col < ncols; ++col)
+            for (int col = 0; col < st.nbin + st.nint; ++col)
             {
-               if (integer[col])
-               {
-                  assert(Num::isIntegral(solution[col]));
-                  localsolver->changeBounds(col, solution[col],
-                                            solution[col]);
-               }
+               assert(Num::isIntegral(solution[col]));
+               localsolver->changeBounds(col, solution[col],
+                                         solution[col]);
             }
 
             auto local_result = localsolver->solve(Algorithm::DUAL);

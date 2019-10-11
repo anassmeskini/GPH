@@ -13,7 +13,7 @@ Octane::search(const MIP& mip, const std::vector<double>& lb,
 {
    int ncols = mip.getNCols();
    const auto& objective = mip.getObj();
-   if (mip.getStatistics().nbin < mip.getNCols())
+   if (mip.getStats().nbin < mip.getNCols())
       return;
 
    // get the active columns in Octane
@@ -191,7 +191,7 @@ Octane::search(const MIP& mip, const std::vector<double>& lb,
    for (size_t i = 0; i < k_closest_facets.size(); ++i)
    {
       for (size_t j = i + 1; j < k_closest_facets.size(); ++j)
-         if (!equal(k_closest_facets[i].facet, k_closest_facets[j].facet))
+         if (equal(k_closest_facets[i].facet, k_closest_facets[j].facet))
          {
             Message::debug_details("Octane: two similar facets {} and {}",
                                    i, j);
@@ -276,7 +276,6 @@ Octane::getFirstFacet(const std::vector<double>& origin,
 
    assert(lambda_num >= 0);
    assert(lambda_denom > 0);
-   assert(static_cast<int>(facet.count()) == space_size);
 
    for (int i = 0; i < space_size; ++i)
    {
@@ -381,7 +380,7 @@ Octane::getKFacets(FacetInfo&& firstFacet,
       auto neighbors =
           getReverseF(min_lambda_facet, origin, ray, column_ratios);
 
-      Message::debug_details("Octane: current lambda {} F-1 size {}",
+      Message::debug_details("Octane: current lambda {} node degree {}",
                              min_lambda_facet.lambda_num /
                                  min_lambda_facet.lambda_denom,
                              neighbors.size());

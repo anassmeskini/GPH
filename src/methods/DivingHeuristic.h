@@ -31,7 +31,7 @@ class DivingHeuristic : public HeuristicMethod
                SolutionPool& pool) override
    {
       int ncols = mip.getNCols();
-      const auto& integer = mip.getInteger();
+      auto st = mip.getStats();
       const auto& objective = mip.getObj();
       const auto& downLocks = mip.getDownLocks();
       const auto& upLocks = mip.getUpLocks();
@@ -68,7 +68,12 @@ class DivingHeuristic : public HeuristicMethod
          if (varToFix < 0)
          {
             if (nFrac > 0)
+            {
                hasZeroLockFractionals = true;
+               bool checklpFeas = checkFeasibility<double, true>(
+                   mip, localsol, 1e-6, 1e-6);
+               assert(checklpFeas);
+            }
             else
                assert(checkFeasibility<double>(mip, localsol, 1e-9, 1e-6));
 
@@ -123,10 +128,11 @@ class DivingHeuristic : public HeuristicMethod
             localsol = std::move(local_result.primalSolution);
             localobj = local_result.obj;
 
-            roundFeasIntegers(localsol, integer);
+            roundFeasIntegers(localsol, st.nbin + st.nint);
 
-            auto checklpFeas = checkFeasibility<double, true>;
-            assert(checklpFeas(mip, localsol, 1e-9, 1e-6));
+            bool checklpFeas =
+                checkFeasibility<double, true>(mip, localsol, 1e-6, 1e-6);
+            assert(checklpFeas);
             assert(Num::isFeasEQ(localsol[varToFix], locallb[varToFix]));
          }
 
@@ -143,22 +149,26 @@ class DivingHeuristic : public HeuristicMethod
          for (int col = 0; col < ncols; ++col)
          {
             localobj += objective[col] * localsol[col];
-            if (!integer[col] || Num::isIntegral(localsol[col]))
-               continue;
 
-            double oldval = localsol[col];
-            if (downLocks[col] == 0)
-               localsol[col] = Num::floor(localsol[col]);
-            else
+            if (col < st.nbin + st.nint && !Num::isIntegral(localsol[col]))
             {
-               assert(upLocks[col] == 0);
-               localsol[col] = Num::ceil(localsol[col]);
-            }
+               assert(!downLocks[col] || !upLocks[col]);
 
-            localobj += objective[col] * (localsol[col] - oldval);
+               double oldval = localsol[col];
+               if (downLocks[col] == 0)
+                  localsol[col] = Num::floor(localsol[col]);
+               else
+               {
+                  assert(upLocks[col] == 0);
+                  localsol[col] = Num::ceil(localsol[col]);
+               }
+
+               localobj += objective[col] * (localsol[col] - oldval);
+            }
          }
 
          Message::debug("{}: found solution val {}", heur_name, localobj);
+         assert(checkFeasibility<double>(mip, localsol, 1e-6, 1e-6));
          pool.add(std::move(localsol), localobj);
       }
       else if (feasible && !limit_reached)

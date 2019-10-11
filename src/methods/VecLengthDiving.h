@@ -14,23 +14,20 @@ struct VecLenDivingSelection
           const std::vector<double>& ub,
           const std::vector<double>& solution)
    {
-      const int ncols = mip.getNCols();
-      const auto& integer = mip.getInteger();
       const auto& downLocks = mip.getDownLocks();
       const auto& upLocks = mip.getUpLocks();
       const auto& objective = mip.getObj();
+      auto st = mip.getStats();
 
       int varToFix = -1;
       int direction = 0;
       double minVecLengthRatio = std::numeric_limits<double>::max();
       int nFrac = 0;
 
-      for (int col = 0; col < ncols; ++col)
+      for (int col = 0; col < st.nbin + st.nint; ++col)
       {
-         if (Num::isFeasEQ(lb[col], ub[col]))
-            continue;
-
-         if (integer[col] && !Num::isIntegral(solution[col]))
+         if (!Num::isIntegral(solution[col]) &&
+             !Num::isFeasEQ(lb[col], ub[col]))
          {
             ++nFrac;
             if (std::min(downLocks[col], upLocks[col]) == 0)

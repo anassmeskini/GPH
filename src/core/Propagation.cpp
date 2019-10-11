@@ -174,7 +174,7 @@ propagateRow(const MIP& problem, int row,
 
    auto& activity = activities[row];
 
-   const auto& integer = problem.getInteger();
+   auto st = problem.getStats();
 
    const auto& lhs = problem.getLHS();
    const auto& rhs = problem.getRHS();
@@ -204,7 +204,7 @@ propagateRow(const MIP& problem, int row,
          if (!lbInf)
             minPartialActivity -= coef * lb[col];
 
-         if (integer[col])
+         if (col < st.nbin + st.nint)
          {
             impliedlb = Num::ceil((lhs[row] - maxPartialActivity) / coef);
             impliedub = Num::floor((rhs[row] - minPartialActivity) / coef);
@@ -231,7 +231,7 @@ propagateRow(const MIP& problem, int row,
          if (!lbInf)
             maxPartialActivity -= coef * lb[col];
 
-         if (integer[col])
+         if (col < st.nbin + st.nint)
          {
             impliedlb = Num::ceil((rhs[row] - minPartialActivity) / coef);
             impliedub = Num::floor((lhs[row] - maxPartialActivity) / coef);
@@ -253,7 +253,7 @@ propagateRow(const MIP& problem, int row,
       if ((impliedlb > lb[col] + 1e-6 && implbfinite) &&
           (impliedub < ub[col] - 1e-6 && impubfinite))
       {
-        auto colview = problem.getCol(col);
+         auto colview = problem.getCol(col);
          // update right and left
          if (!updateActivities(colview, lb[col], impliedlb, ub[col],
                                impliedub, activities, lhs, rhs))
@@ -265,10 +265,10 @@ propagateRow(const MIP& problem, int row,
       }
       else if (impliedlb > lb[col] + 1e-6 && implbfinite)
       {
-        auto colview = problem.getCol(col);
+         auto colview = problem.getCol(col);
          // update right and left
-         if (!updateActivities<ChangedBound::LOWER>(colview, lb[col], impliedlb,
-                               activities, lhs, rhs))
+         if (!updateActivities<ChangedBound::LOWER>(
+                 colview, lb[col], impliedlb, activities, lhs, rhs))
             return false;
 
          lb[col] = impliedlb;
@@ -276,9 +276,10 @@ propagateRow(const MIP& problem, int row,
       }
       else if (impliedub < ub[col] - 1e-6 && impubfinite)
       {
-        auto colview = problem.getCol(col);
+         auto colview = problem.getCol(col);
          // update right and left
-         if (!updateActivities<ChangedBound::UPPER>(colview, ub[col], impliedub, activities, lhs, rhs))
+         if (!updateActivities<ChangedBound::UPPER>(
+                 colview, ub[col], impliedub, activities, lhs, rhs))
             return false;
 
          ub[col] = impliedub;

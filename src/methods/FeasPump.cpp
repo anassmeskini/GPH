@@ -18,8 +18,7 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
 {
    int ncols = mip.getNCols();
    int nrows = mip.getNRows();
-   auto st = mip.getStatistics();
-   const auto& integer = mip.getInteger();
+   auto st = mip.getStats();
    const auto& objective = mip.getObj();
 
    // TODO
@@ -66,10 +65,9 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
 
       // fix and propagate
       bool propagation_feas = true;
-      for (int col = 0; col < ncols; ++col)
+      for (int col = 0; col < st.nbin + st.nint; ++col)
       {
-         // TODO put binary and int cols first
-         if (!integer[col] || Num::isFeasEQ(locallb[col], localub[col]))
+         if (Num::isFeasEQ(locallb[col], localub[col]))
             continue;
 
          double oldlb = locallb[col];
@@ -107,10 +105,9 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
          {
             localsolver.reset();
             localsolver = solver->clone();
-            for (int col = 0; col < ncols; ++col)
+            for (int col = 0; col < st.nbin + st.nint; ++col)
             {
-               if (integer[col])
-                  localsolver->changeBounds(col, sol[col], sol[col]);
+               localsolver->changeBounds(col, sol[col], sol[col]);
             }
 
             auto local_result = localsolver->solve(Algorithm::DUAL);
@@ -142,7 +139,8 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
              "feasPump: making periodic perturbation, iter {} stalls {}",
              iter, stall_iter);
 
-         make_rand_perturbation(rounded_sol, lp_sol, integer, lb);
+         make_rand_perturbation(rounded_sol, lp_sol, st.nbin + st.nint,
+                                lb);
       }
       else if (alpha < alpha_cycle_detection_threshold)
       {
@@ -167,40 +165,41 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
             }
 
             if (cycle == 1)
-               handle_one_cycle(rounded_sol, lp_sol, integer, lb, ub,
+               handle_one_cycle(rounded_sol, lp_sol, lb, ub,
                                 st.nbin + st.nint);
             else
-               make_rand_perturbation(rounded_sol, lp_sol, integer, lb);
+               make_rand_perturbation(rounded_sol, lp_sol,
+                                      st.nbin + st.nint, lb);
          }
       }
 
-      // set up the current iteration's objective
+      // set up the current iteration's objective : integers
       int nlbvar = 0;
       int nubvar = 0;
-      for (int col = 0; col < ncols; ++col)
+      for (int col = 0; col < st.nbin + st.nint; ++col)
       {
-         if (!integer[col])
+         if (Num::isFeasEQ(rounded_sol[col], lb[col]))
+         {
+            ++nlbvar;
+            localsolver->changeObjective(
+                col, 1.0 + alpha * (obj_factor * objective[col] - 1.0));
+         }
+         else if (Num::isFeasEQ(rounded_sol[col], ub[col]))
+         {
+            ++nubvar;
+            localsolver->changeObjective(
+                col, -1.0 + alpha * (obj_factor * objective[col] + 1.0));
+         }
+         else
             localsolver->changeObjective(col, obj_factor * alpha *
                                                   objective[col]);
-         else
-         {
-            if (Num::isFeasEQ(rounded_sol[col], lb[col]))
-            {
-               ++nlbvar;
-               localsolver->changeObjective(
-                   col, 1.0 + alpha * (obj_factor * objective[col] - 1.0));
-            }
-            else if (Num::isFeasEQ(rounded_sol[col], ub[col]))
-            {
-               ++nubvar;
-               localsolver->changeObjective(
-                   col,
-                   -1.0 + alpha * (obj_factor * objective[col] + 1.0));
-            }
-            else
-               localsolver->changeObjective(col, obj_factor * alpha *
-                                                     objective[col]);
-         }
+      }
+
+      // set up the current iteration's objective : continuous
+      for (int col = st.nbin + st.nint; col < st.ncols; ++col)
+      {
+         localsolver->changeObjective(col,
+                                      obj_factor * alpha * objective[col]);
       }
 
       // TODO handle case where all integer variables are not binary
@@ -215,7 +214,7 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
 
       // compute the fractionality
       last_frac = total_frac;
-      total_frac = get_frac(lp_sol, integer);
+      total_frac = get_frac(lp_sol, st.nbin + st.nint);
 
       // check if the lp solution is integer
       if (total_frac < zero_frac)
@@ -223,7 +222,7 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
          Message::debug("feasPump: lp solution is feasible");
 
          assert(!lp_sol.empty());
-         roundFeasIntegers(lp_sol, integer);
+         // roundFeasIntegers(lp_sol, integer);
 
          double cost = 0;
          for (int col = 0; col < ncols; ++col)
@@ -244,7 +243,8 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
                 iter);
             ++restarts;
             stall_iter = 0;
-            make_rand_perturbation(rounded_sol, lp_sol, integer, lb);
+            make_rand_perturbation(rounded_sol, lp_sol, st.nbin + st.nint,
+                                   lb);
          }
       }
       else
@@ -256,9 +256,10 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
          l1dist += std::fabs(rounded_sol[col] - lp_sol[col]);
       Message::debug_details(
           "iter {}, restarts {}, stalls {}, alpha {:0.2f}"
-          ", frac {:0.2f}, l1dist {:0.2f}, nvarlb {}, nvarub {}",
+          ", frac {:0.2f}, l1dist {:0.2f}, nvarlb {}, nvarub {}, "
+          "spx_pivots {}",
           iter, restarts, stall_iter, alpha, total_frac, l1dist, nlbvar,
-          nubvar);
+          nubvar, local_result.niter);
 #endif
 
       // update the solution history
@@ -277,19 +278,14 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
 }
 
 double
-FeasPump::get_frac(const std::vector<double>& lp_sol,
-                   const dynamic_bitset<>& integer)
+FeasPump::get_frac(const std::vector<double>& lp_sol, int ninteger)
 {
    double frac = 0.0;
-   int ncols = lp_sol.size();
 
-   for (int col = 0; col < ncols; ++col)
+   for (int col = 0; col < ninteger; ++col)
    {
-      if (integer[col])
-      {
-         double floor_dist = lp_sol[col] - Num::floor(lp_sol[col]);
-         frac += std::min(floor_dist, 1.0 - floor_dist);
-      }
+      double floor_dist = lp_sol[col] - Num::floor(lp_sol[col]);
+      frac += std::min(floor_dist, 1.0 - floor_dist);
    }
 
    return frac;
@@ -298,16 +294,11 @@ FeasPump::get_frac(const std::vector<double>& lp_sol,
 void
 FeasPump::make_rand_perturbation(std::vector<double>& rounded_sol,
                                  const std::vector<double>& lp_sol,
-                                 const dynamic_bitset<>& integer,
+                                 int ninteger,
                                  const std::vector<double>& lb)
 {
-   int ncols = rounded_sol.size();
-
-   for (int col = 0; col < ncols; ++col)
+   for (int col = 0; col < ninteger; ++col)
    {
-      if (!integer[col])
-         continue;
-
       double rnd = static_cast<double>(rand()) / RAND_MAX;
       double floor_dist = lp_sol[col] - Num::floor(lp_sol[col]);
       double frac = std::min(floor_dist, 1.0 - floor_dist);
@@ -325,7 +316,6 @@ FeasPump::make_rand_perturbation(std::vector<double>& rounded_sol,
 void
 FeasPump::handle_one_cycle(std::vector<double>& rounded_sol,
                            const std::vector<double>& lp_sol,
-                           const dynamic_bitset<>& integer,
                            const std::vector<double>& lb,
                            const std::vector<double>& ub, int ninteger)
 {
@@ -337,7 +327,7 @@ FeasPump::handle_one_cycle(std::vector<double>& rounded_sol,
    for (int col = 0; col < ncols; ++col)
    {
       perm[col] = col;
-      if (integer[col])
+      if (col < ninteger)
       {
          double is_bin = lb[col] == 0.0 && ub[col] == 1.0;
          double floor_dist = lp_sol[col] - Num::floor(lp_sol[col]);

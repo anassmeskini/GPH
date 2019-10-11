@@ -77,10 +77,12 @@ main(int argc, char** argv)
    if (Message::verbosity != Message::RELEASE)
       printStats(mip.getStatistics());
 
-   Search search{
+   /*Search search{
        new BoundSolution, new MinFracRounding, new MinLockRounding,
        new Shifting,      new IntShifting,     new CoefDiving,
-       new FracDiving,    new VecLengthDiving, new FeasPump};
+       new FracDiving,    new VecLengthDiving, new FeasPump};*/
+
+   Search search{new Octane};
    search.run(mip);
 
    return 0;

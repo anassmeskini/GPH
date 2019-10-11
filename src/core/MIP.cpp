@@ -10,7 +10,7 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
          std::vector<int>&& idxT, std::vector<int>&& rstartT,
          std::vector<double>&& _rhs, std::vector<double>&& _lhs,
          std::vector<double>&& _lbs, std::vector<double>&& _ubs,
-         std::vector<double>&& _obj, dynamic_bitset<>&& _integer,
+         std::vector<double>&& _obj, const dynamic_bitset<>& integer,
          std::vector<int>& rowSize, std::vector<std::string>&& _varNames)
 {
    int ncols = cols.size();
@@ -27,95 +27,8 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
    lb = std::move(_lbs);
    ub = std::move(_ubs);
 
-   // move integer bitset
-   integer = std::move(_integer);
-
    // move the objective
    objective = std::move(_obj);
-
-   // now before moving the transposed matrix, we remove
-   // slack variables (non-integer unit columns), and remember these
-   // changes to adjust the objective after we have access to the row-major
-   // matrix
-
-   // first: slack's row, second: removed col,
-   // third: slack's coefficient in the row
-   // fourth: the rhs of the constraint
-   using Tuple = std::tuple<int, int, double, double>;
-   std::vector<Tuple> removedSlacks;
-
-   int nslacks = 0;
-
-   // TODO this is buggy on b1c1s1.mps
-   /*for (int col = 0; col < ncols; ++col)
-   {
-      int colsize = rstartT[col + 1] - rstartT[col];
-
-      if (colsize == 1 && !integer[col])
-      {
-         const int offset = rstartT[col];
-         const int row = idxT[offset];
-         const double slack_coef = coefsT[offset];
-
-         assert(slack_coef != 0.0);
-
-         double* coefs = coefsT.data() + offset;
-         int* indices = idxT.data() + offset;
-         int nnz = coefsT.size();
-
-         if (lhs[row] == rhs[row])
-         {
-            if (objective[col] != 0.0)
-               removedSlacks.emplace_back(row, col, slack_coef, rhs[row]);
-            ++nslacks;
-
-            // replace by lower bound and change constype
-            std::memmove(coefs, coefs + 1,
-                         sizeof(double) * (nnz - (offset + 1)));
-            std::memmove(indices, indices + 1,
-                         sizeof(int) * (nnz - (offset + 1)));
-            --nnz;
-
-            coefsT.resize(nnz);
-            idxT.resize(nnz);
-
-            for (int i = col + 1; i < ncols + 1; ++i)
-               --rstartT[i];
-            --rowSize[row];
-
-            assert(rstartT.back() == static_cast<int>(coefsT.size()));
-
-            if (slack_coef > 0.0)
-            {
-               if (Num::isMinusInf(lb[col]))
-                  rhs[row] = Num::infval;
-               else
-                  rhs[row] -= slack_coef * lb[col];
-
-               if (Num::isInf(ub[col]))
-                  lhs[row] = -Num::infval;
-               else
-                  lhs[row] -= slack_coef * ub[col];
-            }
-            else
-            {
-               if (Num::isInf(ub[col]))
-                  rhs[row] = Num::infval;
-               else
-                  rhs[row] -= slack_coef * ub[col];
-
-               if (Num::isMinusInf(lb[col]))
-                  lhs[row] = -Num::infval;
-               else
-                  lhs[row] -= slack_coef * lb[col];
-            }
-
-            assert(lhs[row] != rhs[row] || lb[col] == ub[col]);
-         }
-      }
-   }*/
-
-   Message::debug("Removed {} slacks", nslacks);
 
    // fill the column major matrix
    constMatrixT.coefficients = std::move(coefsT);
@@ -134,37 +47,6 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
 
    // get the row-major matrix by transposing
    constMatrix = transpose(constMatrixT, rowSize);
-
-   // adjust the objective for the removed slacks
-   // s = (rhs - Ax)/b
-   /*for (auto tuple : removedSlacks)
-   {
-      int row = std::get<0>(tuple);
-      int slack = std::get<1>(tuple);
-      double slack_coef = std::get<2>(tuple);
-      double rhs = std::get<3>(tuple);
-
-      double slack_obj = objective[slack];
-      auto [coefs, indices, size] = getRow(row);
-
-      assert(slack_obj != 0.0);
-      assert(std::all_of(indices, indices + size,
-                         [=](int col) -> bool { return col != slack; }));
-
-      objoffset += slack_obj * rhs / slack_coef;
-
-      for (int i = 0; i < size; ++i)
-      {
-         const int col = indices[i];
-         const double coef = coefs[i];
-
-         objective[col] -= slack_obj * coef / slack_coef;
-      }
-   }*/
-
-   /*sortRows(constMatrix, [&](int left, int right) {
-      return integer[left] && !integer[right];
-   });*/
 
    // fill coefficients statistics
    stats.nnzmat = constMatrixT.coefficients.size();
@@ -248,20 +130,99 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
       if (integer[col])
       {
          if (lb[col] == 0.0 && ub[col] == 1.0)
-            binary.push_back(col);
+            ++stats.nbin;
          else
-            generalInt.push_back(col);
+            ++stats.nint;
       }
       else
-         continuous.push_back(col);
+         ++stats.ncont;
    }
-
-   stats.nbin = static_cast<int>(binary.size());
-   stats.nint = static_cast<int>(generalInt.size());
-   stats.ncont = static_cast<int>(continuous.size());
 
    stats.avgRowSupport /= nrows;
    stats.avgColSupport /= ncols;
+
+   // reorder variables | binary | int | continuous
+   // permutation maps new id -> old id
+   std::vector<int> permutation = getIdentity(ncols);
+   std::sort(permutation.begin(), permutation.end(),
+             [&integer, this](int left, int right) -> bool {
+                bool leftbin =
+                    integer[left] && lb[left] == 0.0 && ub[left] == 1.0;
+                bool rightbin =
+                    integer[right] && lb[right] == 0.0 && ub[right] == 1.0;
+
+                bool leftint = integer[left];
+                bool rightint = integer[right];
+
+                return (leftbin && (!rightbin || !rightint)) ||
+                       (leftint && !rightint);
+             });
+
+   // permute all information related to columns
+   // permutation maps old id -> new id
+   std::vector<int> mapping(ncols);
+   dynamic_bitset<> int_buf(ncols);
+   std::vector<double> lb_buf(ncols);
+   std::vector<double> ub_buf(ncols);
+   std::vector<int> dl_buf(ncols);
+   std::vector<int> ul_buf(ncols);
+   std::vector<double> obj_buf(ncols);
+   std::vector<std::string> name_buf(ncols);
+   for (int i = 0; i < ncols; ++i)
+   {
+      mapping[permutation[i]] = i;
+
+      lb_buf[i] = lb[permutation[i]];
+      ub_buf[i] = ub[permutation[i]];
+      obj_buf[i] = objective[permutation[i]];
+      name_buf[i] = std::move(varNames[permutation[i]]);
+      dl_buf[i] = downLocks[permutation[i]];
+      ul_buf[i] = upLocks[permutation[i]];
+   }
+
+   lb = std::move(lb_buf);
+   ub = std::move(ub_buf);
+   objective = std::move(obj_buf);
+   varNames = std::move(name_buf);
+   downLocks = std::move(dl_buf);
+   upLocks = std::move(ul_buf);
+
+   // change the old indices by the new ones in the row major matrix
+   for (size_t i = 0; i < constMatrix.indices.size(); ++i)
+   {
+      constMatrix.indices[i] = mapping[constMatrix.indices[i]];
+   }
+
+   // permute the rows of the columns major matrix
+   SparseMatrix new_transp;
+   new_transp.ncols = nrows;
+   new_transp.nrows = ncols;
+   new_transp.coefficients.resize(stats.nnzmat);
+   new_transp.indices.resize(stats.nnzmat);
+   new_transp.rowStart.push_back(0);
+   int nnz = 0;
+   for (int i = 0; i < ncols; ++i)
+   {
+      int old_col = permutation[i];
+      int size = constMatrixT.rowStart[old_col + 1] -
+                 constMatrixT.rowStart[old_col];
+
+      std::memcpy(new_transp.coefficients.data() + nnz,
+                  constMatrixT.coefficients.data() +
+                      constMatrixT.rowStart[old_col],
+                  size * sizeof(double));
+
+      std::memcpy(new_transp.indices.data() + nnz,
+                  constMatrixT.indices.data() +
+                      constMatrixT.rowStart[old_col],
+                  size * sizeof(int));
+
+      nnz += size;
+      new_transp.rowStart.push_back(nnz);
+   }
+
+   assert(nnz == stats.nnzmat);
+   constMatrixT = std::move(new_transp);
 }
 
 MIP&
