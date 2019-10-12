@@ -242,8 +242,6 @@ MIP::operator=(MIP&& other) noexcept
    constMatrix = std::move(other.constMatrix);
    constMatrixT = std::move(other.constMatrixT);
 
-   integer = std::move(other.integer);
-
    upLocks = std::move(other.upLocks);
    downLocks = std::move(other.downLocks);
 

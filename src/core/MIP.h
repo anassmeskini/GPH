@@ -147,8 +147,6 @@ class MIP
    // column-major sparse
    SparseMatrix constMatrixT;
 
-   dynamic_bitset<> integer;
-
    std::vector<int> downLocks;
    std::vector<int> upLocks;
 

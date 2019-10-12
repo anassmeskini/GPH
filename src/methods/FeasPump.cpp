@@ -21,9 +21,6 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
    auto st = mip.getStats();
    const auto& objective = mip.getObj();
 
-   // TODO
-   assert(st.nnzobj > 1);
-
    std::unique_ptr<LPSolver> localsolver = solver->clone();
 
    // the factor in the weight of the old objective in

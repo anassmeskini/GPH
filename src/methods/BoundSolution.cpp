@@ -7,9 +7,6 @@
 #include <array>
 #include <tbb/parallel_for.h>
 
-// TODO fix binary first
-// TODO this can be very slow on very dense problems
-
 void
 BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
                       const std::vector<double>& ub,
@@ -79,8 +76,10 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
       {
          Message::debug("Bnd: solving local lp");
 
-         if (!localsolver)
-            localsolver = solver->clone();
+         if (localsolver)
+            localsolver.release();
+
+         localsolver = solver->clone();
 
          localsolver->changeBounds(lower_bounds[i], upper_bounds[i]);
 
