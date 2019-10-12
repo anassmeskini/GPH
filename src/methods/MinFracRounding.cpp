@@ -36,13 +36,10 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
       else
       {
          Message::debug("FracRound: feasible, solving lp");
-         if (!localsolver)
-            localsolver = solver->clone();
+         localsolver = solver->clone();
 
          for (int col = 0; col < st.nbin + st.nint; ++col)
-         {
             localsolver->changeBounds(col, sol[col], sol[col]);
-         }
 
          auto res = localsolver->solve(Algorithm::DUAL);
 

@@ -18,6 +18,7 @@
 #include "methods/MinFracRounding.h"
 #include "methods/MinLockRounding.h"
 #include "methods/Octane.h"
+#include "methods/RandRounding.h"
 #include "methods/Shifting.h"
 #include "methods/VecLengthDiving.h"
 
@@ -77,11 +78,11 @@ main(int argc, char** argv)
    if (Message::verbosity != Message::RELEASE)
       printStats(mip.getStats());
 
-   Search search{new BoundSolution,   new MinFracRounding,
-                 new MinLockRounding, new Shifting,
-                 new IntShifting,     new CoefDiving,
-                 new FracDiving,      new VecLengthDiving,
-                 new FeasPump,        new Octane};
+   Search search{
+       new BoundSolution, new MinFracRounding, new MinLockRounding,
+       new Shifting,      new IntShifting,     new CoefDiving,
+       new FracDiving,    new VecLengthDiving, new FeasPump,
+       new Octane,        new RandRounding};
    search.run(mip);
 
    return 0;
