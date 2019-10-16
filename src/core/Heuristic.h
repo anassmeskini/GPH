@@ -68,7 +68,7 @@ class HeuristicMethod
 
    float getRunTime() const { return runtime; }
 
- protected:
+ private:
    virtual void search(
        const MIP&,                   // original problem
        const std::vector<double>&,   // lb at the node
@@ -88,7 +88,6 @@ class HeuristicMethod
 class Search
 {
  public:
-   Search() = default;
    explicit Search(std::initializer_list<HeuristicMethod*>);
 
    void run(const MIP&);

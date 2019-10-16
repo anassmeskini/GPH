@@ -17,17 +17,18 @@ class FeasPump : public HeuristicMethod
                SolutionPool&) override;
 
  private:
-   constexpr static int pert_freq = 100;
-   constexpr static int max_stall_iter = 10;
+   constexpr static int max_iter = 100;
+   constexpr static int max_stall_iter = 70;
    constexpr static int min_flips = 10;
    constexpr static int max_flips = 30;
    constexpr static int cycle_length = 3;
-   constexpr static int max_iter = 1000;
-   constexpr static int max_restarts = 50;
-   constexpr static int min_iter_pert = 101;
+   constexpr static int max_restarts = 20;
+   constexpr static int pert_freq = 30;
+   constexpr static int min_iter_pert = 20;
+   constexpr static int free_lp_iter_rounds = 10;
 
    constexpr static double alpha_update_factor = 0.9;
-   constexpr static double max_lp_iter_ratio = 0.01;
+   constexpr static double max_lp_iter_ratio = 0.8;
    constexpr static double min_frac_improv = 0.001;
    constexpr static double zero_frac = 1e-4;
    constexpr static double alpha_cycle_detection_threshold = 0.5;

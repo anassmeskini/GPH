@@ -32,12 +32,12 @@ int
 main(int argc, char** argv)
 {
    // read arguments
-   std::optional<ArgInfo> optionalArgs = parseArgs(argc, argv);
+   std::optional optionalArgs = parseArgs(argc, argv);
 
    if (!optionalArgs)
       return 1;
 
-   auto args = optionalArgs.value();
+   const auto& args = optionalArgs.value();
 
    // set verbosity level
    switch (args.verbosity)
@@ -83,6 +83,7 @@ main(int argc, char** argv)
        new Shifting,      new IntShifting,     new CoefDiving,
        new FracDiving,    new VecLengthDiving, new FeasPump,
        new Octane,        new RandRounding};
+
    search.run(mip);
 
    return 0;

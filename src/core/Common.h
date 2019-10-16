@@ -18,12 +18,6 @@ struct Activity
    int ninfmax = 0;
 };
 
-struct LPSolInfo
-{
-   std::vector<double> rowActivities;
-   std::vector<int> fractional;
-};
-
 std::vector<Activity>
 computeActivities(const MIP& mip);
 
