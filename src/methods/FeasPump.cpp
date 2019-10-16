@@ -23,6 +23,12 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
 
    std::unique_ptr<LPSolver> localsolver = solver->clone();
 
+   if (st.nnzmat >= 1.5e5)
+   {
+      // TODO : disable propagation in this case
+      return;
+   }
+
    // the factor in the weight of the old objective in
    // the new objective
    // modified objective:
@@ -54,6 +60,8 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
    int stall_iter = 0;
    int restarts = 0;
 
+   int nlp_iter = 0;
+   bool limit_reached = false;
    do
    {
       locallb = lb;
@@ -71,8 +79,8 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
          double oldub = localub[col];
 
          double int_val = Num::round(lp_sol[col]);
-         if (Num::isFeasLE(int_val, locallb[col]) &&
-             Num::isFeasGE(int_val, locallb[col]))
+         if (Num::isFeasGE(int_val, locallb[col]) &&
+             Num::isFeasLE(int_val, localub[col]))
          {
             locallb[col] = int_val;
             localub[col] = int_val;
@@ -232,18 +240,7 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
 
       // check for stalling
       if (iter > 5 && total_frac > last_frac - min_frac_improv)
-      {
-         if (++stall_iter >= max_stall_iter)
-         {
-            Message::debug(
-                "feasPump: maximum stalls reached after {} iterations",
-                iter);
-            ++restarts;
-            stall_iter = 0;
-            make_rand_perturbation(rounded_sol, lp_sol, st.nbin + st.nint,
-                                   lb);
-         }
-      }
+         ++stall_iter;
       else
          stall_iter = 0;
 
@@ -271,6 +268,20 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
 
       // update alpha
       alpha *= alpha_update_factor;
+
+      nlp_iter = local_result.niter;
+
+      limit_reached = (nlp_iter > max_lp_iter_ratio * result.niter &&
+                       iter % pert_freq >= free_lp_iter_rounds) ||
+                      (stall_iter >= max_stall_iter);
+
+      if (limit_reached)
+      {
+         Message::debug("FeasPump: limit reached nlp_iter {}, nstalls {}",
+                        nlp_iter, stall_iter);
+         break;
+      }
+
    } while (++iter < max_iter);
 }
 

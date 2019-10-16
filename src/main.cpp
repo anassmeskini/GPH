@@ -83,6 +83,7 @@ main(int argc, char** argv)
        new Shifting,      new IntShifting,     new CoefDiving,
        new FracDiving,    new VecLengthDiving, new FeasPump,
        new Octane,        new RandRounding};
+
    search.run(mip);
 
    return 0;
