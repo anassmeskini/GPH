@@ -41,7 +41,12 @@ struct Message
    }
 
 #ifndef NDEBUG
-   static tbb::mutex mut;
+   inline static tbb::mutex mut;
+   inline static enum Verbosity {
+      QUIET,
+      DEBUG,
+      DEBUG_DETAILS
+   } verbosity = QUIET;
 
    template <typename... Args>
    static void debug(std::string_view str, Args&&... args)
@@ -66,8 +71,6 @@ struct Message
          fmt::print("\n");
       }
    }
-
-   static enum Verbosity { QUIET, DEBUG, DEBUG_DETAILS } verbosity;
 #else
 
    template <typename... Args>
