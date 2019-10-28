@@ -13,7 +13,7 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
                  const std::vector<Activity>& activities,
                  const LPResult& result, const std::vector<double>&,
                  const std::vector<int>&,
-                 std::shared_ptr<const LPSolver> solver,
+                 std::shared_ptr<const LPSolver> solver, TimeLimit tlimit,
                  SolutionPool& pool)
 {
    int ncols = mip.getNCols();
@@ -282,7 +282,7 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
          break;
       }
 
-   } while (++iter < max_iter);
+   } while (++iter < max_iter && !tlimit.reached(Timer::now()));
 }
 
 double

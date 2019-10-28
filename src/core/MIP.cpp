@@ -223,6 +223,10 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
 
    assert(nnz == stats.nnzmat);
    constMatrixT = std::move(new_transp);
+
+#ifndef NDEBUG
+   printStats(stats);
+#endif
 }
 
 MIP&

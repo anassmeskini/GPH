@@ -12,7 +12,7 @@ Shifting::search(const MIP& mip, const std::vector<double>& lb,
                  const std::vector<double>& solAct,
                  const std::vector<int>& fractional,
                  std::shared_ptr<const LPSolver> lpsolver,
-                 SolutionPool& pool)
+                 TimeLimit tlimit, SolutionPool& pool)
 {
    int nrows = mip.getNRows();
    int ncols = mip.getNCols();
@@ -330,5 +330,5 @@ Shifting::search(const MIP& mip, const std::vector<double>& lb,
       }
 
       ++ordering;
-   } while (ordering < 4 && feasible);
+   } while (ordering < 4 && feasible && !tlimit.reached(Timer::now()));
 }

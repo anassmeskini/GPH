@@ -7,12 +7,11 @@
 struct ArgInfo
 {
    std::string probFile;
-   std::string outSolFile;
-   std::string inSolFile;
-
    int timelimit;
    int nthreads;
+#ifndef NDEBUG
    int verbosity;
+#endif
 };
 
 std::optional<ArgInfo>

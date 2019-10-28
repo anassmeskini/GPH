@@ -8,7 +8,7 @@ Octane::search(const MIP& mip, const std::vector<double>& lb,
                const std::vector<double>& ub, const std::vector<Activity>&,
                const LPResult& result, const std::vector<double>&,
                const std::vector<int>&, std::shared_ptr<const LPSolver>,
-               SolutionPool& pool)
+               TimeLimit, SolutionPool& pool)
 
 {
    int ncols = mip.getNCols();

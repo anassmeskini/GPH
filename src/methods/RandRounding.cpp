@@ -14,7 +14,7 @@ RandRounding::search(const MIP& mip, const std::vector<double>& lb,
                      const LPResult& result, const std::vector<double>&,
                      const std::vector<int>& fractional,
                      std::shared_ptr<const LPSolver> solver,
-                     SolutionPool& pool)
+                     TimeLimit tlimit, SolutionPool& pool)
 {
    auto st = mip.getStats();
    auto objective = mip.getObj();
@@ -83,6 +83,9 @@ RandRounding::search(const MIP& mip, const std::vector<double>& lb,
          feasible = propagate(mip, locallb_partial, localub_partial,
                               local_activities_partial, col, oldlb, oldub);
       }
+
+      if (tlimit.reached(Timer::now()))
+         return;
    }
 
    if (!feasible)
@@ -123,6 +126,9 @@ RandRounding::search(const MIP& mip, const std::vector<double>& lb,
 
             feasible = propagate(mip, locallb, localub, local_activities,
                                  col, oldlb, oldub);
+
+            if (tlimit.reached(Timer::now()))
+               return;
          }
       }
 

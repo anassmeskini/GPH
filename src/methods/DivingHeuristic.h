@@ -27,7 +27,7 @@ class DivingHeuristic : public HeuristicMethod
                const std::vector<Activity>& activities,
                const LPResult& result, const std::vector<double>&,
                const std::vector<int>& fractional,
-               std::shared_ptr<const LPSolver> solver,
+               std::shared_ptr<const LPSolver> solver, TimeLimit tlimit,
                SolutionPool& pool) override
    {
       int ncols = mip.getNCols();
@@ -137,7 +137,8 @@ class DivingHeuristic : public HeuristicMethod
          }
 
          if (iter > ncols * iter_per_col_max ||
-             result.niter > simplex_iter_growth_max * prev_simplex_iter)
+             result.niter > simplex_iter_growth_max * prev_simplex_iter ||
+             tlimit.reached(Timer::now()))
             limit_reached = true;
 
       } while (feasible && !limit_reached);

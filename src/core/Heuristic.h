@@ -12,6 +12,7 @@
 #include <tuple>
 #include <vector>
 
+#include <optional>
 #include <tbb/mutex.h>
 
 class SolutionPool
@@ -55,10 +56,11 @@ class HeuristicMethod
                 const std::vector<int>&
                     integer, // integer variables with fractional values
                 std::shared_ptr<const LPSolver> lpsolver, // lp solver
+                TimeLimit limit,                          // time limit
                 SolutionPool& pool)
    {
       auto t0 = Timer::now();
-      search(mip, lb, ub, act, res, lpsol, integer, lpsolver, pool);
+      search(mip, lb, ub, act, res, lpsol, integer, lpsolver, limit, pool);
       auto t1 = Timer::now();
 
       runtime += Timer::seconds(t1, t0);
@@ -79,6 +81,7 @@ class HeuristicMethod
                                      // solution
        const std::vector<int>&, // integer variables with fractional values
        std::shared_ptr<const LPSolver>, // lp solver
+       TimeLimit limit,                 // time limit
        SolutionPool&) = 0;              // solution pool
 
    std::string name;
@@ -90,7 +93,7 @@ class Search
  public:
    explicit Search(std::initializer_list<HeuristicMethod*>);
 
-   void run(const MIP&);
+   std::optional<std::vector<double>> run(const MIP&, int);
 
  private:
    std::tuple<int, int, double, int> getSolSummary() const;

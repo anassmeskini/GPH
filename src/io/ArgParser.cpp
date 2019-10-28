@@ -1,29 +1,51 @@
 #include "ArgParser.h"
+#include "Message.h"
 #include "clipp/clipp.h"
 
 #include <iostream>
+#include <limits>
 
-std::optional<ArgInfo> parseArgs(int argc, char **argv)
+std::optional<ArgInfo>
+parseArgs(int argc, char** argv)
 {
 
    using namespace clipp;
 
    ArgInfo arginfo;
 
-   arginfo.timelimit = -1;
+   arginfo.timelimit = std::numeric_limits<int>::max();
    arginfo.nthreads = -1;
    arginfo.probFile = "mip.mps";
+
+#ifndef NDEBUG
    arginfo.verbosity = 2;
+#endif
 
    auto cli =
        (value("input file", arginfo.probFile),
         option("-l", "--limit") &
             value("tlimit", arginfo.timelimit).doc("time limit"),
-        option("-o", "--output") & value("outfile", arginfo.inSolFile)
-                                       .doc("output file for the solution"),
+#ifndef NDEBUG
         option("-v") & value("verbosity", arginfo.verbosity),
+#endif
         option("-t", "--thread") & value("nthreads", arginfo.nthreads)
                                        .doc("number of threads to use"));
+
+#ifndef NDEBUG
+   // set verbosity level
+   switch (arginfo.verbosity)
+   {
+   case 1:
+      Message::verbosity = Message::QUIET;
+      break;
+   case 2:
+      Message::verbosity = Message::DEBUG;
+      break;
+   case 3:
+      Message::verbosity = Message::DEBUG_DETAILS;
+      break;
+   }
+#endif
 
    if (!parse(argc, argv, cli))
    {

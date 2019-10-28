@@ -8,6 +8,7 @@
 #include "io/ArgParser.h"
 #include "io/MPSReader.h"
 #include "io/Message.h"
+#include "io/SOLFormat.h"
 
 #include "methods/BoundSolution.h"
 #include "methods/CoefDiving.h"
@@ -26,6 +27,7 @@
 #include <exception>
 #include <new>
 #include <optional>
+#include <filesystem>
 #include <tbb/task_scheduler_init.h>
 
 int
@@ -38,20 +40,6 @@ main(int argc, char** argv)
       return 1;
 
    const auto& args = optionalArgs.value();
-
-   // set verbosity level
-   switch (args.verbosity)
-   {
-   case 1:
-      Message::verbosity = Message::RELEASE;
-      break;
-   case 2:
-      Message::verbosity = Message::DEBUG;
-      break;
-   case 3:
-      Message::verbosity = Message::DEBUG_DETAILS;
-      break;
-   }
 
    // set number of threads
    assert(args.nthreads == -1 || args.nthreads >= 1);
@@ -75,16 +63,23 @@ main(int argc, char** argv)
       return 1;
    }
 
-   if (Message::verbosity != Message::RELEASE)
-      printStats(mip.getStats());
+   Search search{new BoundSolution,   new MinFracRounding,
+                 new MinLockRounding, new Shifting,
+                 new IntShifting,     new CoefDiving,
+                 new FracDiving,      new VecLengthDiving,
+                 new FeasPump,        new RandRounding};
 
-   Search search{
-       new BoundSolution, new MinFracRounding, new MinLockRounding,
-       new Shifting,      new IntShifting,     new CoefDiving,
-       new FracDiving,    new VecLengthDiving, new FeasPump,
-       new Octane,        new RandRounding};
+   std::optional solution = search.run(mip, args.timelimit);
 
-   search.run(mip);
+   // write the solution to disk
+   if (solution)
+   {
+      std::vector solVec = solution.value();
+      assert(solVec.size() == static_cast<size_t>(mip.getNCols()));
+
+      std::string filename = std::filesystem::path(args.probFile).filename();
+      SOLFormat::write(filename, solVec, mip.getVarNames());
+   }
 
    return 0;
 }

@@ -5,6 +5,7 @@
 #include "io/Message.h"
 
 #include <array>
+#include <tbb/mutex.h>
 #include <tbb/parallel_for.h>
 
 void
@@ -14,8 +15,11 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
                       const LPResult&, const std::vector<double>&,
                       const std::vector<int>&,
                       std::shared_ptr<const LPSolver> solver,
-                      SolutionPool& pool)
+                      TimeLimit tlimit, SolutionPool& pool)
 {
+   if (tlimit.reached(Timer::now()))
+      return;
+
    int ncols = mip.getNCols();
    const auto& objective = mip.getObj();
 
@@ -23,6 +27,7 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
    std::array<std::vector<double>, nruns> lower_bounds;
    std::array<std::vector<double>, nruns> upper_bounds;
    std::array<bool, nruns> feasible;
+   tbb::mutex solPoolLock;
 
    auto run = [&](tbb::blocked_range<size_t>& range) {
       for (size_t i = range.begin(); i != range.end(); ++i)
@@ -33,76 +38,76 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
          switch (i)
          {
          case 0:
-            feasible[i] = tryLBSolution(mip, lower_bounds[i],
-                                        upper_bounds[i], activities);
+            feasible[i] = tryLBSolution(
+                mip, lower_bounds[i], upper_bounds[i], activities, tlimit);
             break;
 
          case 1:
-            feasible[i] = tryUBSolution(mip, lower_bounds[i],
-                                        upper_bounds[i], activities);
+            feasible[i] = tryUBSolution(
+                mip, lower_bounds[i], upper_bounds[i], activities, tlimit);
             break;
 
          case 2:
             feasible[i] = tryOptimisticSolution(
-                mip, lower_bounds[i], upper_bounds[i], activities);
+                mip, lower_bounds[i], upper_bounds[i], activities, tlimit);
             break;
 
          default:
             assert(0);
          }
+
+         if (tlimit.reached(Timer::now()))
+            return;
+
+         if (feasible[i])
+         {
+            if (mip.getStats().ncont == 0)
+            {
+               Message::debug("Bnd: found a solution");
+
+               double obj = 0.0;
+               for (int j = 0; j < ncols; ++j)
+                  obj += objective[i] * lower_bounds[i][j];
+
+               pool.add(std::move(lower_bounds[i]), obj);
+            }
+            else
+            {
+               Message::debug("Bnd: solving local lp");
+
+               std::unique_ptr localsolver = solver->clone();
+
+               localsolver->changeBounds(lower_bounds[i], upper_bounds[i]);
+
+               auto localresult = localsolver->solve(Algorithm::DUAL);
+               if (localresult.status == LPResult::OPTIMAL)
+               {
+                  Message::debug("Bnd: lb: lp feasible");
+
+                  assert(checkFeasibility<double>(
+                      mip, localresult.primalSolution));
+
+                  {
+                     std::unique_lock lock(solPoolLock);
+                     pool.add(std::move(localresult.primalSolution),
+                              localresult.obj);
+                  }
+               }
+               else if (localresult.status == LPResult::INFEASIBLE)
+                  Message::debug("Bnd: lb: lp infeasible");
+            }
+         }
       }
    };
 
    tbb::parallel_for(tbb::blocked_range<size_t>(0, nruns), std::move(run));
-
-   std::unique_ptr<LPSolver> localsolver;
-
-   for (size_t i = 0; i < nruns; ++i)
-   {
-      if (!feasible[i])
-         continue;
-
-      if (mip.getStats().ncont == 0)
-      {
-         Message::debug("Bnd: found a solution");
-
-         double obj = 0.0;
-         for (int j = 0; j < ncols; ++j)
-            obj += objective[i] * lower_bounds[i][j];
-
-         pool.add(std::move(lower_bounds[i]), obj);
-      }
-      else
-      {
-         Message::debug("Bnd: solving local lp");
-
-         if (localsolver)
-            localsolver.release();
-
-         localsolver = solver->clone();
-
-         localsolver->changeBounds(lower_bounds[i], upper_bounds[i]);
-
-         auto localresult = localsolver->solve(Algorithm::DUAL);
-         if (localresult.status == LPResult::OPTIMAL)
-         {
-            Message::debug("Bnd: lb: lp feasible");
-
-            assert(
-                checkFeasibility<double>(mip, localresult.primalSolution));
-            pool.add(std::move(localresult.primalSolution),
-                     localresult.obj);
-         }
-         else if (localresult.status == LPResult::INFEASIBLE)
-            Message::debug("Bnd: lb: lp infeasible");
-      }
-   }
 }
 
 bool
 BoundSolution::tryUBSolution(const MIP& mip, std::vector<double>& locallb,
                              std::vector<double>& localub,
-                             const std::vector<Activity>& activities) const
+                             const std::vector<Activity>& activities,
+                             TimeLimit tlimit) const
 {
    auto st = mip.getStats();
 
@@ -126,6 +131,9 @@ BoundSolution::tryUBSolution(const MIP& mip, std::vector<double>& locallb,
                         locallb[col], oldub))
             return false;
       }
+
+      if (tlimit.reached(Timer::now()))
+         return false;
    }
 
    for (auto col : inflbIntVars)
@@ -152,6 +160,9 @@ BoundSolution::tryUBSolution(const MIP& mip, std::vector<double>& locallb,
                         oldlb, oldub))
             return false;
       }
+
+      if (tlimit.reached(Timer::now()))
+         return false;
    }
 
    return true;
@@ -160,7 +171,8 @@ BoundSolution::tryUBSolution(const MIP& mip, std::vector<double>& locallb,
 bool
 BoundSolution::tryLBSolution(const MIP& mip, std::vector<double>& locallb,
                              std::vector<double>& localub,
-                             const std::vector<Activity>& activities) const
+                             const std::vector<Activity>& activities,
+                             TimeLimit tlimit) const
 {
    auto st = mip.getStats();
 
@@ -184,6 +196,9 @@ BoundSolution::tryLBSolution(const MIP& mip, std::vector<double>& locallb,
                         oldlb, localub[col]))
             return false;
       }
+
+      if (tlimit.reached(Timer::now()))
+         return false;
    }
 
    for (auto col : infubIntVars)
@@ -209,6 +224,9 @@ BoundSolution::tryLBSolution(const MIP& mip, std::vector<double>& locallb,
                         oldlb, oldub))
             return false;
       }
+
+      if (tlimit.reached(Timer::now()))
+         return false;
    }
 
    return true;
@@ -217,8 +235,8 @@ BoundSolution::tryLBSolution(const MIP& mip, std::vector<double>& locallb,
 bool
 BoundSolution::tryOptimisticSolution(
     const MIP& mip, std::vector<double>& locallb,
-    std::vector<double>& localub,
-    const std::vector<Activity>& activities) const
+    std::vector<double>& localub, const std::vector<Activity>& activities,
+    TimeLimit tlimit) const
 {
    const auto& objective = mip.getObj();
    auto st = mip.getStats();
@@ -287,6 +305,9 @@ BoundSolution::tryOptimisticSolution(
                         oldlb, oldub))
             return false;
       }
+
+      if (tlimit.reached(Timer::now()))
+         return false;
    }
 
    for (int col : varsToRound)
@@ -312,6 +333,9 @@ BoundSolution::tryOptimisticSolution(
 
       if (!propagate(mip, locallb, localub, local_activities, col, oldlb,
                      oldub))
+         return false;
+
+      if (tlimit.reached(Timer::now()))
          return false;
    }
 

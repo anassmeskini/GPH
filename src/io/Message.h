@@ -40,15 +40,13 @@ struct Message
       fmt::print("\n");
    }
 
-   static enum Verbosity { RELEASE, DEBUG, DEBUG_DETAILS } verbosity;
-
 #ifndef NDEBUG
    static tbb::mutex mut;
 
    template <typename... Args>
    static void debug(std::string_view str, Args&&... args)
    {
-      if (verbosity != RELEASE)
+      if (verbosity != QUIET)
       {
          std::lock_guard<tbb::mutex> lock(mut);
          fmt::print("[Debug]: ");
@@ -69,6 +67,7 @@ struct Message
       }
    }
 
+   static enum Verbosity { QUIET, DEBUG, DEBUG_DETAILS } verbosity;
 #else
 
    template <typename... Args>

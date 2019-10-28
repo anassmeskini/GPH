@@ -17,7 +17,7 @@ class Octane : public HeuristicMethod
                const std::vector<double>&, const std::vector<Activity>&,
                const LPResult&, const std::vector<double>&,
                const std::vector<int>&, std::shared_ptr<const LPSolver>,
-               SolutionPool&) override;
+               TimeLimit, SolutionPool&) override;
 
  private:
    enum class Ray

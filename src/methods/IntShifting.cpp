@@ -12,13 +12,16 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
                     const std::vector<double>& solAct,
                     const std::vector<int>& fractional,
                     std::shared_ptr<const LPSolver> lpsolver,
-                    SolutionPool& pool)
+                    TimeLimit tlimit, SolutionPool& pool)
 {
    // if there is no continuous variables
    // this heuristic es equal to shifting
 
    auto st = mip.getStats();
    if (st.ncont == 0)
+      return;
+
+   if (tlimit.reached(Timer::now()))
       return;
 
    int nrows = mip.getNRows();
@@ -359,6 +362,9 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
 
             if (!row_corrected)
                break;
+
+            if (tlimit.reached(Timer::now()))
+               return;
          }
 
          if (nviolated > 0)
@@ -401,5 +407,5 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
       }
 
       ++ordering;
-   } while (ordering < 4 && feasible);
+   } while (ordering < 4 && feasible && !tlimit.reached(Timer::now()));
 }

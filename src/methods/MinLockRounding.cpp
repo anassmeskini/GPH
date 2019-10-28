@@ -13,7 +13,7 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
                         const std::vector<double>& solAct,
                         const std::vector<int>& fractional,
                         std::shared_ptr<const LPSolver> lpsolver,
-                        SolutionPool& pool)
+                        TimeLimit tlimit, SolutionPool& pool)
 {
    int nrows = mip.getNRows();
    int ncols = mip.getNCols();
@@ -64,6 +64,9 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
       violatedRows.reserve(nrows / 4);
       for (size_t i = 0; i < fractional.size(); ++i)
       {
+         if (tlimit.reached(Timer::now()))
+            return;
+
          violatedRows.clear();
          isviolated.reset();
          int nviolated = 0;

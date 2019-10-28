@@ -64,9 +64,10 @@ Search::checkSolFeas(const MIP& mip) const
    return true;
 }
 
-void
-Search::run(const MIP& mip)
+std::optional<std::vector<double>>
+Search::run(const MIP& mip, int seconds)
 {
+   TimeLimit tlimit(Timer::now(), seconds);
    auto st = mip.getStats();
    auto lpSolver = std::make_shared<MySolver>(mip);
 
@@ -116,7 +117,7 @@ Search::run(const MIP& mip)
       for (size_t i = range.begin(); i != range.end(); ++i)
          heuristics[i]->execute(mip, mip.getLB(), mip.getUB(), activities,
                                 result, lpSolAct, fractional, lpSolver,
-                                heuristics_solutions[i]);
+                                tlimit, heuristics_solutions[i]);
    };
 
    tbb::parallel_for(tbb::blocked_range<size_t>{0, heuristics.size()},
@@ -130,11 +131,6 @@ Search::run(const MIP& mip)
    if (nsols > 0)
    {
       assert(min_cost_sol != -1 && min_cost_heur != -1);
-
-      SOLFormat::write(
-          "best.sol",
-          heuristics_solutions[min_cost_heur][min_cost_sol].first,
-          mip.getVarNames());
 
       double gap = 100.0 * std::fabs(min_cost - result.obj) /
                    (std::fabs(result.obj) + 1e-6);
@@ -163,4 +159,9 @@ Search::run(const MIP& mip)
                      heuristics[i]->getName(), heuristics[i]->getRunTime(),
                      heuristics_solutions[i].size(), best);
    }
+
+   if (nsols > 0)
+      return heuristics_solutions[min_cost_heur][min_cost_sol].first;
+
+   return {};
 }

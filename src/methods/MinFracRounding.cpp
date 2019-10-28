@@ -12,7 +12,7 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
                         const LPResult& result, const std::vector<double>&,
                         const std::vector<int>& fractional,
                         std::shared_ptr<const LPSolver> solver,
-                        SolutionPool& pool)
+                        TimeLimit tlimit, SolutionPool& pool)
 {
    int ncols = mip.getNCols();
 
@@ -69,6 +69,9 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
       return;
    }
 
+   if (tlimit.reached(Timer::now()))
+      return;
+
    Message::debug("FracRound: infeasible, trying propagation");
 
    auto locallb = lb;
@@ -78,6 +81,9 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
 
    for (int col = 0; col < st.nbin + st.nint && feasible; ++col)
    {
+      if (tlimit.reached(Timer::now()))
+         return;
+
       if (!Num::isFeasEQ(locallb[col], localub[col]))
       {
          double oldlb = locallb[col];
