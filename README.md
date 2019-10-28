@@ -16,7 +16,7 @@ These general purpose heuristics can be combined with problem-specific ones, tha
 This approach can be used to increase the likelihood of finding good quality solutions for hard problems.
 
 ## Design
-* The problem is stored by the class `MIP`, with the constraint matrix stored in row-major and column-major as two sparse matrices.
+* The problem is stored by the class `MIP`, with the constraint matrix stored in row-major and column-major order as two sparse matrices.
 * A heuristic is a class derived from `HeuristicMethod` and implements the method `run`.
 * The class `Search` takes a list of heuristics in the constructor and runs them in parallel.
 

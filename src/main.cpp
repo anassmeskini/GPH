@@ -25,9 +25,9 @@
 
 #include <cassert>
 #include <exception>
+#include <filesystem>
 #include <new>
 #include <optional>
-#include <filesystem>
 #include <tbb/task_scheduler_init.h>
 
 int
@@ -77,8 +77,9 @@ main(int argc, char** argv)
       std::vector solVec = solution.value();
       assert(solVec.size() == static_cast<size_t>(mip.getNCols()));
 
-      std::string filename = std::filesystem::path(args.probFile).filename();
-      SOLFormat::write(filename, solVec, mip.getVarNames());
+      std::string filename =
+          std::filesystem::path(args.probFile).filename();
+      SOLFormat::write(filename + ".sol", solVec, mip.getVarNames());
    }
 
    return 0;
