@@ -8,12 +8,10 @@ GPH implements approximation algorithms for finding feasible solutions of good q
 
 The algorithms implemented are the heuristics usually embedded in MIP solvers.
 A description of these algorithms can be found [here](https://opus4.kobv.de/opus4-zib/files/1112/Achterberg_Constraint_Integer_Programming.pdf).
+The heuristics do not require the problem to have any particular structure, but some of them are restricted to pure binary programs.
 
 The code is written in C++17 with a simple object-oriented design and provides data structures that allow for an efficient implementation of the algorithms.
-Additionally, the code is parallelized using the Thread Building Blocks library.
-
-These heuristics can be combined with problem-specific ones, that exploit the problem's structure.
-This approach can be used to increase the likelihood of finding good quality solutions for hard problems.
+Additionally, the code is parallelized using the Thread Building Blocks library. 
 
 ## Design
 * The problem data is stored by the class `MIP`: the constraint matrix stored in row-major and column-major order as two sparse matrices and the rest of the problem is stored as dense vectors.
@@ -41,9 +39,10 @@ The executable reads plain text files in MPS format and writes the best solution
 
 ```
 SYNOPSIS
-        ./gph <input file> [-l <tlimit>] [-t <nthreads>]
+        ./gph <input file> [-l <tlimit>] [-t <nthreads>] [-c <config>]
 
 OPTIONS
         <tlimit>    time limit
         <nthreads>  number of threads to use
+        <config>    configuration file
 ```

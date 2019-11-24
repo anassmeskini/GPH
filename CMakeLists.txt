@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 3.0.0)
-project(LPS LANGUAGES CXX
-            DESCRIPTION "Heuristics for mixed integer programming")
+project(GPH LANGUAGES CXX
+            DESCRIPTION
+            "General-purpose heuristics for mixed-integer programming")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -81,7 +82,8 @@ target_link_libraries(gph PRIVATE
                       ${LPSOLVER_LIBRARIES} m stdc++fs)
 
 target_link_libraries(scp PRIVATE
-                      ${TBB_IMPORTED_TARGETS}
+                      TBB::tbb
+                      TBB::tbbmalloc_proxy
                       ${LPSOLVER_LIBRARIES} m stdc++fs)
 
 add_subdirectory(test)
