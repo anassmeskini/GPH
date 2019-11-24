@@ -4,10 +4,10 @@
 
 #include <vector>
 
-class Shifting : public HeuristicMethod
+class Shifting : public FeasibilityHeuristic
 {
  public:
-   Shifting() : HeuristicMethod("Shifting") {}
+   Shifting() : FeasibilityHeuristic("Shifting") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,

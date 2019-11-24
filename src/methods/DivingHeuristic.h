@@ -15,10 +15,10 @@ operator+(std::string_view str1, std::string_view str2)
 // TODO better stopping criteria
 
 template <typename SELECTION>
-class DivingHeuristic : public HeuristicMethod
+class DivingHeuristic : public FeasibilityHeuristic
 {
  public:
-   DivingHeuristic() : HeuristicMethod(SELECTION::name + "Diving") {}
+   DivingHeuristic() : FeasibilityHeuristic(SELECTION::name + "Diving") {}
 
    ~DivingHeuristic() override = default;
 
@@ -34,7 +34,10 @@ class DivingHeuristic : public HeuristicMethod
       auto st = mip.getStats();
       const auto& objective = mip.getObj();
       const auto& downLocks = mip.getDownLocks();
+
+#ifndef NDEBUG
       const auto& upLocks = mip.getUpLocks();
+#endif
 
       auto local_activities = activities;
       auto locallb = lb;
@@ -70,9 +73,11 @@ class DivingHeuristic : public HeuristicMethod
             if (nFrac > 0)
             {
                hasZeroLockFractionals = true;
+#ifndef NDEBUG
                bool checklpFeas = checkFeasibility<double, true>(
                    mip, localsol, 1e-6, 1e-6);
                assert(checklpFeas);
+#endif
             }
             else
                assert(checkFeasibility<double>(mip, localsol, 1e-9, 1e-6));
@@ -129,11 +134,12 @@ class DivingHeuristic : public HeuristicMethod
             localobj = local_result.obj;
 
             roundFeasIntegers(localsol, st.nbin + st.nint);
-
+#ifndef NDEBUG
             bool checklpFeas =
                 checkFeasibility<double, true>(mip, localsol, 1e-6, 1e-6);
             assert(checklpFeas);
             assert(Num::isFeasEQ(localsol[varToFix], locallb[varToFix]));
+#endif
          }
 
          if (iter > ncols * iter_per_col_max ||

@@ -248,3 +248,92 @@ roundFeasIntegers(std::vector<double>& sol, int ninteger)
    }
 }
 
+void
+maxOutSolution(const MIP& mip, std::vector<double>& solution, double& cost)
+{
+   auto st = mip.getStats();
+   const auto& lhs = mip.getLHS();
+   const auto& rhs = mip.getRHS();
+   const auto& lb = mip.getLB();
+   const auto& ub = mip.getUB();
+   const auto& objective = mip.getObj();
+
+   std::vector<double> activities(st.nrows, 0.0);
+
+   for (int row = 0; row < st.nrows; ++row)
+   {
+      auto [rowcoefs, rowindices, rowsize] = mip.getRow(row);
+
+      for (int i = 0; i < rowsize; ++i)
+      {
+         int col = rowindices[i];
+         double coef = rowcoefs[i];
+         activities[row] += coef * solution[col];
+      }
+
+      assert(Num::isFeasGE(activities[row], lhs[row]));
+      assert(Num::isFeasLE(activities[row], rhs[row]));
+   }
+
+   for (int col = 0; col < st.ncols; ++col)
+   {
+      if (objective[col] == 0)
+         continue;
+
+      auto [colcoefs, colindices, colsize] = mip.getCol(col);
+
+      double max_abs_delta = Num::infval;
+      for (int i = 0; i < colsize; ++i)
+      {
+         int row = colindices[i];
+         double coef = colcoefs[i];
+
+         if (objective[col] < 0)
+         {
+            if (coef > 0.0)
+               max_abs_delta = std::min(
+                   max_abs_delta, (rhs[row] - activities[row]) / coef);
+            else
+               max_abs_delta = std::min(
+                   max_abs_delta, (lhs[row] - activities[row]) / coef);
+         }
+         else
+         {
+            if (coef > 0.0)
+               max_abs_delta = std::min(
+                   max_abs_delta, (activities[row] - lhs[row]) / coef);
+            else
+               max_abs_delta = std::min(
+                   max_abs_delta, (activities[row] - rhs[row]) / coef);
+         }
+
+         assert(max_abs_delta >= 0.0);
+      }
+
+      if (col < st.nbin + st.nint)
+         max_abs_delta = Num::floor(max_abs_delta);
+
+      if (!Num::isFeasGE(max_abs_delta, 0.0))
+         continue;
+
+      double delta;
+
+      if (objective[col] < 0.0)
+         delta = std::min(max_abs_delta, ub[col] - solution[col]);
+      else
+         delta = -std::min(max_abs_delta, solution[col] - lb[col]);
+
+      solution[col] += delta;
+      cost += objective[col] * delta;
+
+      assert(Num::isFeasGE(solution[col], lb[col]));
+      assert(Num::isFeasLE(solution[col], ub[col]));
+
+      for (int i = 0; i < colsize; ++i)
+      {
+         int row = colindices[i];
+         double coef = colcoefs[i];
+         activities[row] += coef * delta;
+      }
+   }
+}

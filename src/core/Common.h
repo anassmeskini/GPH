@@ -209,4 +209,8 @@ all_of(const std::vector<T>& v1, const std::vector<T>& v2,
    }
    return true;
 }
+
+void
+maxOutSolution(const MIP& mip, std::vector<double>& solution,
+               double& cost);
 #endif

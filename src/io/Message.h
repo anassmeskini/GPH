@@ -63,9 +63,9 @@ struct Message
    template <typename... Args>
    static void debug_details(std::string_view str, Args&&... args)
    {
-      std::lock_guard<tbb::mutex> lock(mut);
       if (verbosity == DEBUG_DETAILS)
       {
+         std::lock_guard<tbb::mutex> lock(mut);
          fmt::print("[Debug]: ");
          fmt::print(str, std::forward<Args>(args)...);
          fmt::print("\n");

@@ -1,13 +1,9 @@
-#ifndef MIN_FRAC_HPP
-#define MIN_FRAC_HPP
 #include "core/Heuristic.h"
 
-#include <vector>
-
-class MinFracRounding : public FeasibilityHeuristic
+class GreedyHeuristic final : public FeasibilityHeuristic
 {
  public:
-   MinFracRounding() : FeasibilityHeuristic("FracRounding") {}
+   GreedyHeuristic() : FeasibilityHeuristic("SetCoverGreedy") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,
@@ -15,7 +11,9 @@ class MinFracRounding : public FeasibilityHeuristic
                const std::vector<int>&, std::shared_ptr<const LPSolver>,
                TimeLimit, SolutionPool&) override;
 
-   ~MinFracRounding() override = default;
+ private:
+   static constexpr int itermax = 1000;
+   static constexpr int cand_list_max = 10;
+   static constexpr double priority = 0.5;
+   static constexpr double improvement = 0.2;
 };
-
-#endif

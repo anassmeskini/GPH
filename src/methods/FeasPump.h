@@ -5,10 +5,10 @@
 
 #include <vector>
 
-class FeasPump : public HeuristicMethod
+class FeasPump : public FeasibilityHeuristic
 {
  public:
-   FeasPump() : HeuristicMethod("FeasPump") {}
+   FeasPump() : FeasibilityHeuristic("FeasPump") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,

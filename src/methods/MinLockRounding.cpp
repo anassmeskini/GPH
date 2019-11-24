@@ -89,9 +89,10 @@ MinLockRounding::search(const MIP& mip, const std::vector<double>& lb,
          nviolated += updateSolActivity(solActivity, mip.getCol(col), lhs,
                                         rhs, solution[col] - oldval,
                                         violatedRows, isviolated);
-
+#ifndef NDEBUG
          auto lpviolated = getNViolated<double, true>;
          assert(nviolated == lpviolated(mip, solution, 1e-9, 1e-6));
+#endif
 
          if (nviolated == 0)
             continue;

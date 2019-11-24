@@ -6,10 +6,12 @@
 #include "core/Timer.h"
 
 #include "io/ArgParser.h"
+#include "io/Config.h"
 #include "io/MPSReader.h"
 #include "io/Message.h"
 #include "io/SOLFormat.h"
 
+#include "methods/BinaryLocalSearch.h"
 #include "methods/BoundSolution.h"
 #include "methods/CoefDiving.h"
 #include "methods/DivingHeuristic.h"
@@ -45,35 +47,30 @@ main(int argc, char** argv)
    assert(args.nthreads == -1 || args.nthreads >= 1);
    tbb::task_scheduler_init init(args.nthreads);
 
-   MIP mip;
-
    // read mip
-   try
-   {
-      auto t0 = Timer::now();
-      mip = MPSReader::parse(args.probFile);
-      auto t1 = Timer::now();
+   auto t0 = Timer::now();
+   MIP mip = MPSReader::parse(args.probFile);
+   auto t1 = Timer::now();
 
-      Message::print("Reading the problem took: {:0.2f} sec.",
-                     Timer::seconds(t1, t0));
-   }
-   catch (const std::exception& ex)
-   {
-      Message::print(ex.what());
-      return 1;
-   }
+   Message::print("Reading the problem took: {:0.2f} sec.",
+                  Timer::seconds(t1, t0));
 
-   Search search{new BoundSolution,   new MinFracRounding,
-                 new MinLockRounding, new Shifting,
-                 new IntShifting,     new CoefDiving,
-                 new FracDiving,      new VecLengthDiving,
-                 new FeasPump,        new RandRounding};
+   // takes ownership
+   Search search(
+       // feasibility heuristics
+       {new BoundSolution, new IntShifting, new MinFracRounding,
+        new MinLockRounding, new CoefDiving, new FracDiving,
+        new RandRounding, new VecLengthDiving, new FeasPump, new Shifting},
+       // improvement heuristics
+       {new BinLocalSearch},
+       // configuration
+       Config(args.configFile));
 
    std::optional solution = search.run(mip, args.timelimit);
 
-   // write the solution to disk
    if (solution)
    {
+      // write the solution to disk
       std::vector solVec = solution.value();
       assert(solVec.size() == static_cast<size_t>(mip.getNCols()));
 

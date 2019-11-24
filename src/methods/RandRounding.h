@@ -4,10 +4,10 @@
 
 #include <vector>
 
-class RandRounding : public HeuristicMethod
+class RandRounding : public FeasibilityHeuristic
 {
  public:
-   RandRounding() : HeuristicMethod("RandRounding") {}
+   RandRounding() : FeasibilityHeuristic("RandRounding") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,
@@ -16,6 +16,19 @@ class RandRounding : public HeuristicMethod
                TimeLimit, SolutionPool&) override;
 
    ~RandRounding() override = default;
+
+   void
+   setParam(const std::string& param,
+            const std::variant<std::string, int, double>& value) override
+   {
+      if (param == "itermax")
+      {
+         // TODO make sure it is nonegative
+         itermax = std::get<int>(value);
+      }
+   }
+
+   int itermax = 10;
 };
 
 #endif

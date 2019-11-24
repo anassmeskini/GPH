@@ -21,7 +21,7 @@ RandRounding::search(const MIP& mip, const std::vector<double>& lb,
 
    std::unique_ptr<LPSolver> localsolver;
 
-   static std::default_random_engine gen;
+   static thread_local std::default_random_engine gen;
    std::uniform_real_distribution<double> dist(0.0, 1.0);
 
    auto process_sol = [&](std::vector<double>& sol) {
@@ -136,5 +136,5 @@ RandRounding::search(const MIP& mip, const std::vector<double>& lb,
          process_sol(locallb);
       else
          Message::debug("RandRound: No solution found");
-   } while (feasible && iter < 5);
+   } while (feasible && iter < itermax);
 }

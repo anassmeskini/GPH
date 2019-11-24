@@ -1,9 +1,9 @@
 #ifndef _AVAILABLE_SOLVER_HPP
 #define _AVAILABLE_SOLVER_HPP
 
-#include "interface/CPXSolver.h"
-#include "interface/GLPKSolver.h"
-#include "interface/SPXSolver.h"
+#include "interfaces/CPXSolver.h"
+#include "interfaces/GLPKSolver.h"
+#include "interfaces/SPXSolver.h"
 
 #ifdef CONCERT_CPLEX_FOUND
 using MySolver = CPXSolver;
@@ -12,7 +12,7 @@ using MySolver = SPXSolver;
 #elif GLPK_FOUND
 using MySolver = GLPKSolver;
 #else
-static_assert(0, "");
+static_assert(0, "No LP solver available");
 #endif
 
 #endif

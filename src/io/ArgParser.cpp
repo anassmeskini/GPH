@@ -29,7 +29,9 @@ parseArgs(int argc, char** argv)
         option("-v") & value("verbosity", arginfo.verbosity),
 #endif
         option("-t", "--thread") & value("nthreads", arginfo.nthreads)
-                                       .doc("number of threads to use"));
+                                       .doc("number of threads to use"),
+        option("-c", "--config") &
+            value("config", arginfo.configFile).doc("configuration file"));
 
 #ifndef NDEBUG
    // set verbosity level

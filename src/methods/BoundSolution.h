@@ -4,10 +4,10 @@
 
 #include <vector>
 
-class BoundSolution final : public HeuristicMethod
+class BoundSolution final : public FeasibilityHeuristic
 {
  public:
-   BoundSolution() : HeuristicMethod("BoundSolution") {}
+   BoundSolution() : FeasibilityHeuristic("BoundSolution") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,

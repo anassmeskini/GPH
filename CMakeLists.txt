@@ -6,11 +6,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 file(GLOB SOURCES "src/core/*.cpp" 
-                  "src/interface/*.cpp"  
+                  "src/interfaces/*.cpp"  
                   "src/io/*.cpp" 
                   "src/methods/*.cpp")
 
 add_executable(gph "src/main.cpp" ${SOURCES})
+
+add_executable(scp "example/SetCover.cpp" "example/GreedyHeuristic.cpp" ${SOURCES})
 
 #compiler flags
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
@@ -24,7 +26,7 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # dependencies
-find_package(TBB REQUIRED tbb)
+find_package(TBB REQUIRED tbb tbbmalloc_proxy)
 
 # use the header only version of fmtlib
 add_compile_definitions(FMT_HEADER_ONLY)
@@ -61,13 +63,24 @@ else()
    message(FATAL_ERROR "LP solver not found")
 endif()
 
-include_directories(${PROJECT_SOURCE_DIR}/src
-                    ${PROJECT_SOURCE_DIR}/external 
+target_include_directories(gph PRIVATE ${PROJECT_SOURCE_DIR}/src
+                    ${PROJECT_SOURCE_DIR}/external
+                    SYSTEM
+                    ${TBB_INCLUDE_DIRS}
+                    ${LPSOLVER_INCLUDE_DIRS})
+
+target_include_directories(scp PRIVATE ${PROJECT_SOURCE_DIR}/src
+                    ${PROJECT_SOURCE_DIR}/external
                     SYSTEM
                     ${TBB_INCLUDE_DIRS}
                     ${LPSOLVER_INCLUDE_DIRS})
 
 target_link_libraries(gph PRIVATE 
+                      TBB::tbb
+                      TBB::tbbmalloc_proxy
+                      ${LPSOLVER_LIBRARIES} m stdc++fs)
+
+target_link_libraries(scp PRIVATE
                       ${TBB_IMPORTED_TARGETS}
                       ${LPSOLVER_LIBRARIES} m stdc++fs)
 

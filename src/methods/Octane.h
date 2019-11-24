@@ -8,10 +8,10 @@
 #include <tuple>
 #include <vector>
 
-class Octane : public HeuristicMethod
+class Octane : public FeasibilityHeuristic
 {
  public:
-   Octane() : HeuristicMethod("Octane") {}
+   Octane() : FeasibilityHeuristic("Octane") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,

@@ -7,6 +7,7 @@
 struct ArgInfo
 {
    std::string probFile;
+   std::string configFile;
    int timelimit;
    int nthreads;
 #ifndef NDEBUG

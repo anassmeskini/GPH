@@ -2,10 +2,10 @@
 #define INTSHIFTING_HPP
 #include "core/Heuristic.h"
 
-class IntShifting : public HeuristicMethod
+class IntShifting : public FeasibilityHeuristic
 {
  public:
-   IntShifting() : HeuristicMethod("IntShifting") {}
+   IntShifting() : FeasibilityHeuristic("IntShifting") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,

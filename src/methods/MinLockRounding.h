@@ -4,10 +4,10 @@
 
 #include <vector>
 
-class MinLockRounding : public HeuristicMethod
+class MinLockRounding : public FeasibilityHeuristic
 {
  public:
-   MinLockRounding() : HeuristicMethod("LockRounding") {}
+   MinLockRounding() : FeasibilityHeuristic("LockRounding") {}
 
    void search(const MIP&, const std::vector<double>&,
                const std::vector<double>&, const std::vector<Activity>&,
