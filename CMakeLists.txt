@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.0.0)
+cmake_minimum_required (VERSION 3.12)
 project(GPH LANGUAGES CXX
             DESCRIPTION
             "General-purpose heuristics for mixed-integer programming")
@@ -10,10 +10,12 @@ file(GLOB SOURCES "src/core/*.cpp"
                   "src/interfaces/*.cpp"  
                   "src/io/*.cpp" 
                   "src/methods/*.cpp")
+               
+add_library(mylib STATIC ${SOURCES})
 
-add_executable(gph "src/main.cpp" ${SOURCES})
+add_executable(gph "src/main.cpp")
 
-add_executable(scp "example/SetCover.cpp" "example/GreedyHeuristic.cpp" ${SOURCES})
+add_executable(scp "example/SetCover.cpp" "example/GreedyHeuristic.cpp")
 
 #compiler flags
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
@@ -64,26 +66,17 @@ else()
    message(FATAL_ERROR "LP solver not found")
 endif()
 
-target_include_directories(gph PRIVATE ${PROJECT_SOURCE_DIR}/src
-                    ${PROJECT_SOURCE_DIR}/external
-                    SYSTEM
-                    ${TBB_INCLUDE_DIRS}
-                    ${LPSOLVER_INCLUDE_DIRS})
+target_include_directories(mylib PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
+target_include_directories(mylib SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS})
+target_link_libraries(mylib PRIVATE TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES} m stdc++fs)
 
-target_include_directories(scp PRIVATE ${PROJECT_SOURCE_DIR}/src
-                    ${PROJECT_SOURCE_DIR}/external
-                    SYSTEM
-                    ${TBB_INCLUDE_DIRS}
-                    ${LPSOLVER_INCLUDE_DIRS})
+target_include_directories(gph PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
+target_include_directories(gph SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS})
+target_link_libraries(gph PRIVATE mylib TBB::tbb)
 
-target_link_libraries(gph PRIVATE 
-                      TBB::tbb
-                      TBB::tbbmalloc_proxy
-                      ${LPSOLVER_LIBRARIES} m stdc++fs)
+target_include_directories(scp PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
+target_include_directories(scp SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS})
+target_link_libraries(scp PRIVATE mylib TBB::tbb)
 
-target_link_libraries(scp PRIVATE
-                      TBB::tbb
-                      TBB::tbbmalloc_proxy
-                      ${LPSOLVER_LIBRARIES} m stdc++fs)
 
 add_subdirectory(test)

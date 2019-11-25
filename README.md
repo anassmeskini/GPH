@@ -28,7 +28,7 @@ Example: compiling with SoPlex
 git clone https://github.com/anassmeskini/GPH
 mkdir build
 cd build
-cmake .. -DSOLVER=soplex -DTBB_DIR=/path/to/tbb/cmake
+cmake .. -DSOLVER=soplex -DTBB_ROOT=/path/to/tbb
 make
 ```
 
