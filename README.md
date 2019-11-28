@@ -21,6 +21,7 @@ Additionally, the code is parallelized using the Thread Building Blocks library.
 
 ## Compilation
 GPH depends on an external LP solver and the Thread Building Blocks library and uses CMake for compilation. Three LP solvers are supported: Cplex, SoPlex and GLPK.
+zlib is an optional dependency to read gzip format.
 
 Example: compiling with SoPlex
 
@@ -35,7 +36,7 @@ make
 If the LP solver is not installed system-wide, the path needs to be provided to cmake (by adding `-DSOPLEX_DIR=/path/to/soplex` in the example).
 
 ### Usage
-The executable reads plain text files in MPS format and writes the best solution to disk if at least one was found.
+The executable reads plain text and gzip files in MPS format and writes the best solution to disk if at least one was found.
 
 ```
 SYNOPSIS

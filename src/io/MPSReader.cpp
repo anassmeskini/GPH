@@ -6,6 +6,110 @@
 #include <cstring>
 #include <exception>
 
+#ifdef ZLIB_FOUND
+#include <zlib.h>
+
+static std::string
+decompress_string(const std::string& str)
+{
+   z_stream zs;
+   std::memset(&zs, 0, sizeof(zs));
+
+   if (inflateInit2(&zs, 16 + MAX_WBITS) != Z_OK)
+      throw std::runtime_error("inflateInit failed while decompressing.");
+
+   zs.next_in = (unsigned char*)str.data();
+   zs.avail_in = str.size();
+
+   int ret;
+   char outbuffer[32768];
+   std::string outstring;
+
+   do
+   {
+      zs.next_out = reinterpret_cast<unsigned char*>(outbuffer);
+      zs.avail_out = sizeof(outbuffer);
+
+      ret = inflate(&zs, 0);
+
+      if (outstring.size() < zs.total_out)
+         outstring.append(outbuffer, zs.total_out - outstring.size());
+
+   } while (ret == Z_OK);
+
+   inflateEnd(&zs);
+
+   if (ret != Z_STREAM_END)
+      throw std::runtime_error("Exception during zlib decompression");
+
+   return outstring;
+}
+
+#else
+
+static std::string
+decompress_string(const std::string&)
+{
+   throw std::runtime_error("The library was built without zlib");
+
+   return {};
+}
+
+#endif
+
+MPSWrapper::MPSWrapper(const std::string& filename)
+    : ptr(0), integer_section(false), linenb(0)
+{
+   std::fstream in(filename);
+   in.seekg(0, std::ios::end);
+   std::streampos size = in.tellg();
+   in.seekg(0, std::ios::beg);
+   content.resize(size);
+   in.read(&content[0], size);
+   in.close();
+
+   auto pos = filename.find_last_of('.');
+
+   if (filename.substr(pos + 1) == "gz")
+   {
+      std::string temp = decompress_string(content);
+      content = std::move(temp);
+   }
+
+   buf = nullptr;
+   next = &content[0];
+
+   for (size_t i = 0; i < content.size(); ++i)
+   {
+      if (content[i] == tab)
+         content[i] = blank;
+   }
+}
+
+bool
+MPSWrapper::getLine() noexcept
+{
+   buf = next;
+
+   if (ptr == content.size())
+      return false;
+
+   do
+   {
+      ++next;
+      ++ptr;
+   } while (ptr < content.size() && *next != '\n');
+
+   if (ptr < content.size())
+   {
+      *next = '\0';
+      ++next;
+      ++ptr;
+   }
+
+   return true;
+}
+
 bool
 MPSWrapper::readLine() noexcept
 {
@@ -20,34 +124,20 @@ MPSWrapper::readLine() noexcept
       field_4 = nullptr;
       field_5 = nullptr;
 
-      ++linenb;
-
-      bool empty = true;
       do
       {
-         if (!is.getline(buf, sizeof(buf)).good() && !is.eof())
+         ++linenb;
+         if (!getLine())
             return false;
 
-         // comment
-         if (buf[0] == '*')
-            continue;
-
-         // replace tabs with spaces
-         int len = int(strlen(buf));
-         for (int i = 0; i < len; i++)
-         {
-            if (buf[i] == tab)
-               buf[i] = blank;
-            else if (buf[i] != blank)
-               empty = false;
-         }
-      } while (empty);
+      } while (buf[0] == '*' || buf[0] == '\n');
 
       // new section
       if (buf[0] != blank)
       {
          field_1 = std::strtok(buf, " ");
-         field_2 = std::strtok(nullptr, " ");
+         if (!std::strcmp(field_1, "NAME"))
+            field_2 = std::strtok(nullptr, " ");
          return true;
       }
 
@@ -105,7 +195,7 @@ MPSReader::parse(const std::string& file)
    if (!in.is_open())
       throw std::runtime_error("unable to open file");
 
-   MPSWrapper mps(in);
+   MPSWrapper mps(file);
 
    std::string name;
 
@@ -141,64 +231,56 @@ MPSReader::parse(const std::string& file)
    {
       switch (nextsection)
       {
-         case NAME:
-            Message::debug("section name");
-            nextsection = parseName(mps, name);
-            break;
+      case NAME:
+         Message::debug("section name");
+         nextsection = parseName(mps, name);
+         break;
 
-         case ROWS:
-            t0 = Timer::now();
-            nextsection = parseRows(mps, rows, objName);
-            t1 = Timer::now();
-            Message::debug("Section ROWS parsed in {:0.2f}s",
-                           Timer::seconds(t1, t0));
-            break;
+      case ROWS:
+         t0 = Timer::now();
+         nextsection = parseRows(mps, rows, objName);
+         t1 = Timer::now();
+         Message::debug("Section ROWS parsed in {:0.2f}s",
+                        Timer::seconds(t1, t0));
+         break;
 
-         case COLUMNS:
-            t0 = Timer::now();
-            nextsection = parseColumns(mps,
-                                       rows,
-                                       cols,
-                                       coefsT,
-                                       idxT,
-                                       rstatrtT,
-                                       objective,
-                                       objName,
-                                       integer,
-                                       rowSize,
-                                       varNames);
-            t1 = Timer::now();
-            Message::debug("Section COLUMNS parsed in {:0.2f}s",
-                           Timer::seconds(t1, t0));
-            break;
+      case COLUMNS:
+         t0 = Timer::now();
+         nextsection =
+             parseColumns(mps, rows, cols, coefsT, idxT, rstatrtT,
+                          objective, objName, integer, rowSize, varNames);
+         t1 = Timer::now();
+         Message::debug("Section COLUMNS parsed in {:0.2f}s",
+                        Timer::seconds(t1, t0));
+         break;
 
-         case RHS:
-            t0 = Timer::now();
-            nextsection = parseRhs(mps, rows, lhs, rhs);
-            t1 = Timer::now();
-            Message::debug("Section RHS parsed in {:0.2f}s",
-                           Timer::seconds(t1, t0));
-            break;
+      case RHS:
+         t0 = Timer::now();
+         nextsection = parseRhs(mps, rows, lhs, rhs);
+         t1 = Timer::now();
+         Message::debug("Section RHS parsed in {:0.2f}s",
+                        Timer::seconds(t1, t0));
+         break;
 
-         case BOUNDS:
-            t0 = Timer::now();
-            nextsection = parseBounds(mps, cols, lbs, ubs, integer);
-            t1 = Timer::now();
-            Message::debug("Section BOUNDS parsed in {:0.2f}s",
-                           Timer::seconds(t1, t0));
-            break;
+      case BOUNDS:
+         t0 = Timer::now();
+         nextsection = parseBounds(mps, cols, lbs, ubs, integer);
+         t1 = Timer::now();
+         Message::debug("Section BOUNDS parsed in {:0.2f}s",
+                        Timer::seconds(t1, t0));
+         break;
 
-         case RANGES:
-            t0 = Timer::now();
-            nextsection = parseRanges(mps, rows, lhs, rhs);
-            t1 = Timer::now();
-            Message::debug("Section BOUNDS parsed in {:0.2f}s",
-                           Timer::seconds(t1, t0));
-            break;
+      case RANGES:
+         t0 = Timer::now();
+         nextsection = parseRanges(mps, rows, lhs, rhs);
+         t1 = Timer::now();
+         Message::debug("Section BOUNDS parsed in {:0.2f}s",
+                        Timer::seconds(t1, t0));
+         break;
 
-         case FORMAT_ERROR:
-         case END:
-            assert(0);
+      case FORMAT_ERROR:
+      case END:
+         assert(0);
       }
    }
 
@@ -206,19 +288,10 @@ MPSReader::parse(const std::string& file)
       throw std::runtime_error("unable to parse MPS file (error in line " +
                                std::to_string(mps.getLineNb()) + ")");
 
-   return MIP(rows,
-              cols,
-              std::move(coefsT),
-              std::move(idxT),
-              std::move(rstatrtT),
-              std::move(rhs),
-              std::move(lhs),
-              std::move(lbs),
-              std::move(ubs),
-              std::move(objective),
-              std::move(integer),
-              rowSize,
-              std::move(varNames));
+   return MIP(rows, cols, std::move(coefsT), std::move(idxT),
+              std::move(rstatrtT), std::move(rhs), std::move(lhs),
+              std::move(lbs), std::move(ubs), std::move(objective),
+              std::move(integer), rowSize, std::move(varNames));
 }
 
 MPSReader::Section
@@ -254,27 +327,27 @@ MPSReader::parseRows(MPSWrapper& mps, Rows& rows, std::string& objname)
 
       switch (mps.field1()[0])
       {
-         case 'N':
-            type = OBJECTIVE;
-            objname = std::string(mps.field2());
-            break;
-         case 'L':
-            type = LESS;
-            break;
-         case 'G':
-            type = GREATER;
-            break;
-         case 'E':
-            type = EQUAL;
-            break;
-         default:
-            return FORMAT_ERROR;
+      case 'N':
+         type = OBJECTIVE;
+         objname = std::string(mps.field2());
+         break;
+      case 'L':
+         type = LESS;
+         break;
+      case 'G':
+         type = GREATER;
+         break;
+      case 'E':
+         type = EQUAL;
+         break;
+      default:
+         return FORMAT_ERROR;
       }
 
       if (type != OBJECTIVE)
       {
          auto pair =
-           rows.emplace(mps.field2(), std::make_pair(type, rowcounter));
+             rows.emplace(mps.field2(), std::make_pair(type, rowcounter));
          ++rowcounter;
 
          // duplicate rows
@@ -289,11 +362,8 @@ MPSReader::parseRows(MPSWrapper& mps, Rows& rows, std::string& objname)
 }
 
 MPSReader::Section
-MPSReader::parseColumns(MPSWrapper& mps,
-                        const Rows& rows,
-                        Cols& cols,
-                        std::vector<double>& coefs,
-                        std::vector<int>& idxT,
+MPSReader::parseColumns(MPSWrapper& mps, const Rows& rows, Cols& cols,
+                        std::vector<double>& coefs, std::vector<int>& idxT,
                         std::vector<int>& rstart,
                         std::vector<double>& objective,
                         const std::string& objname,
@@ -356,8 +426,7 @@ MPSReader::parseColumns(MPSWrapper& mps,
          assert(colid >= beforesize);
          assert(objective.size() == static_cast<size_t>(colid) + 1);
 
-         std::memset(objective.data() + beforesize,
-                     0,
+         std::memset(objective.data() + beforesize, 0,
                      sizeof(double) * (colid - beforesize));
 
          objective[colid] = coef;
@@ -405,8 +474,7 @@ MPSReader::parseColumns(MPSWrapper& mps,
          assert(colid >= beforesize);
          assert(objective.size() == static_cast<size_t>(colid) + 1);
 
-         std::memset(objective.data() + beforesize,
-                     0,
+         std::memset(objective.data() + beforesize, 0,
                      sizeof(double) * (colid - beforesize));
 
          objective[colid] = coef;
@@ -438,8 +506,8 @@ MPSReader::parseColumns(MPSWrapper& mps,
    objective.resize(ncols);
 
    assert(ncols >= beforesize);
-   std::memset(
-     objective.data() + beforesize, 0, sizeof(double) * (ncols - beforesize));
+   std::memset(objective.data() + beforesize, 0,
+               sizeof(double) * (ncols - beforesize));
 
    if (!std::strcmp(mps.field1(), "RHS"))
       return RHS;
@@ -448,10 +516,8 @@ MPSReader::parseColumns(MPSWrapper& mps,
 }
 
 MPSReader::Section
-MPSReader::parseRhs(MPSWrapper& mps,
-                    const Rows& rows,
-                    std::vector<double>& lhs,
-                    std::vector<double>& rhs)
+MPSReader::parseRhs(MPSWrapper& mps, const Rows& rows,
+                    std::vector<double>& lhs, std::vector<double>& rhs)
 {
    const double inf = std::numeric_limits<double>::infinity();
 
@@ -468,20 +534,20 @@ MPSReader::parseRhs(MPSWrapper& mps,
       assert(id < static_cast<int>(lhs.size()));
       switch (type)
       {
-         case LESS:
-            lhs[id] = -inf;
-            rhs[id] = 0.0;
-            break;
-         case GREATER:
-            lhs[id] = 0.0;
-            rhs[id] = inf;
-            break;
-         case EQUAL:
-            lhs[id] = 0.0;
-            rhs[id] = 0.0;
-            break;
-         case OBJECTIVE:
-            break;
+      case LESS:
+         lhs[id] = -inf;
+         rhs[id] = 0.0;
+         break;
+      case GREATER:
+         lhs[id] = 0.0;
+         rhs[id] = inf;
+         break;
+      case EQUAL:
+         lhs[id] = 0.0;
+         rhs[id] = 0.0;
+         break;
+      case OBJECTIVE:
+         break;
       }
    }
 
@@ -513,21 +579,21 @@ MPSReader::parseRhs(MPSWrapper& mps,
 
       switch (iter->second.first)
       {
-         case LESS:
-            lhs[rowid] = -inf;
-            rhs[rowid] = side;
-            break;
-         case GREATER:
-            lhs[rowid] = side;
-            rhs[rowid] = inf;
-            break;
-         case EQUAL:
-            lhs[rowid] = side;
-            rhs[rowid] = side;
-            break;
-         case OBJECTIVE:
-            assert(0);
-            break;
+      case LESS:
+         lhs[rowid] = -inf;
+         rhs[rowid] = side;
+         break;
+      case GREATER:
+         lhs[rowid] = side;
+         rhs[rowid] = inf;
+         break;
+      case EQUAL:
+         lhs[rowid] = side;
+         rhs[rowid] = side;
+         break;
+      case OBJECTIVE:
+         assert(0);
+         break;
       }
 
       if (!mps.field4())
@@ -552,21 +618,21 @@ MPSReader::parseRhs(MPSWrapper& mps,
 
       switch (iter->second.first)
       {
-         case LESS:
-            lhs[rowid] = -inf;
-            rhs[rowid] = side;
-            break;
-         case GREATER:
-            lhs[rowid] = side;
-            rhs[rowid] = inf;
-            break;
-         case EQUAL:
-            lhs[rowid] = side;
-            rhs[rowid] = side;
-            break;
-         case OBJECTIVE:
-            assert(0);
-            break;
+      case LESS:
+         lhs[rowid] = -inf;
+         rhs[rowid] = side;
+         break;
+      case GREATER:
+         lhs[rowid] = side;
+         rhs[rowid] = inf;
+         break;
+      case EQUAL:
+         lhs[rowid] = side;
+         rhs[rowid] = side;
+         break;
+      case OBJECTIVE:
+         assert(0);
+         break;
       }
 
    } while (true);
@@ -580,15 +646,13 @@ MPSReader::parseRhs(MPSWrapper& mps,
 }
 
 MPSReader::Section
-MPSReader::parseBounds(MPSWrapper& mps,
-                       const Cols& cols,
-                       std::vector<double>& lbs,
-                       std::vector<double>& ubs,
+MPSReader::parseBounds(MPSWrapper& mps, const Cols& cols,
+                       std::vector<double>& lbs, std::vector<double>& ubs,
                        dynamic_bitset<>& integer)
 {
    lbs = std::vector<double>(cols.size(), 0);
-   ubs =
-     std::vector<double>(cols.size(), std::numeric_limits<double>::infinity());
+   ubs = std::vector<double>(cols.size(),
+                             std::numeric_limits<double>::infinity());
 
    dynamic_bitset<> lb_changed(cols.size(), false);
 
@@ -668,10 +732,8 @@ MPSReader::parseBounds(MPSWrapper& mps,
 }
 
 MPSReader::Section
-MPSReader::parseRanges(MPSWrapper& mps,
-                       const Rows& rows,
-                       std::vector<double>& lhs,
-                       std::vector<double>& rhs)
+MPSReader::parseRanges(MPSWrapper& mps, const Rows& rows,
+                       std::vector<double>& lhs, std::vector<double>& rhs)
 {
    std::string rangeVectorName;
 
@@ -708,21 +770,21 @@ MPSReader::parseRanges(MPSWrapper& mps,
 
       switch (type)
       {
-         case GREATER:
+      case GREATER:
+         rhs[rowid] = lhs[rowid] + range;
+         break;
+      case LESS:
+         lhs[rowid] = rhs[rowid] - range;
+         break;
+      case EQUAL:
+         if (range > 0.0)
             rhs[rowid] = lhs[rowid] + range;
-            break;
-         case LESS:
-            lhs[rowid] = rhs[rowid] - range;
-            break;
-         case EQUAL:
-            if (range > 0.0)
-               rhs[rowid] = lhs[rowid] + range;
-            else
-               lhs[rowid] = rhs[rowid] + range;
-            break;
-         default:
-            assert(0);
-            break;
+         else
+            lhs[rowid] = rhs[rowid] + range;
+         break;
+      default:
+         assert(0);
+         break;
       }
 
    } while (true);

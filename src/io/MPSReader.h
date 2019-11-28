@@ -14,14 +14,8 @@
 
 class MPSWrapper
 {
-   public:
-   MPSWrapper(std::istream& _is)
-     : is(_is)
-     , integer_section(false)
-     , linenb(0)
-   {
-      buf[0] = '\0';
-   }
+ public:
+   explicit MPSWrapper(const std::string& filename);
 
    bool readLine() noexcept;
 
@@ -36,10 +30,15 @@ class MPSWrapper
 
    int getLineNb() const { return linenb; }
 
-   private:
-   std::istream& is;
+ private:
+   bool getLine() noexcept;
 
-   char buf[256];
+   std::string content;
+
+   char* buf;
+   char* next;
+   size_t ptr;
+
    bool integer_section;
 
    char* field_1 = nullptr;
@@ -57,10 +56,10 @@ class MPSWrapper
 
 class MPSReader
 {
-   public:
+ public:
    static MIP parse(const std::string&);
 
-   private:
+ private:
    enum Section : uint8_t
    {
       NAME,
@@ -78,35 +77,28 @@ class MPSReader
 
    static Section parseRows(MPSWrapper&, Rows& rows, std::string& objName);
 
-   static Section parseColumns(MPSWrapper&,
-                               const Rows& rows,
-                               Cols& cols,
-                               std::vector<double>& coefs,
-                               std::vector<int>& idxT,
-                               std::vector<int>& rstart,
-                               std::vector<double>& obj,
-                               const std::string& objName,
-                               dynamic_bitset<>&,
-                               std::vector<int>&,
-                               std::vector<std::string>&);
+   static Section
+   parseColumns(MPSWrapper&, const Rows& rows, Cols& cols,
+                std::vector<double>& coefs, std::vector<int>& idxT,
+                std::vector<int>& rstart, std::vector<double>& obj,
+                const std::string& objName, dynamic_bitset<>&,
+                std::vector<int>&, std::vector<std::string>&);
 
-   static Section parseRhs(MPSWrapper&,
-                           const Rows& rows,
+   static Section parseRhs(MPSWrapper&, const Rows& rows,
                            std::vector<double>& lhs,
                            std::vector<double>& rhs);
 
-   static Section parseBounds(MPSWrapper&,
-                              const Cols& cols,
+   static Section parseBounds(MPSWrapper&, const Cols& cols,
                               std::vector<double>& lbs,
                               std::vector<double>& ubs,
                               dynamic_bitset<>& integer);
 
-   static Section parseRanges(MPSWrapper&,
-                              const Rows& rows,
+   static Section parseRanges(MPSWrapper&, const Rows& rows,
                               std::vector<double>& lhs,
                               std::vector<double>& rbs);
 
-   static SparseMatrix transpose(const SparseMatrix&, const std::vector<int>&);
+   static SparseMatrix transpose(const SparseMatrix&,
+                                 const std::vector<int>&);
 };
 
 #endif

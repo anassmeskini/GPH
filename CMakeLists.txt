@@ -30,6 +30,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # dependencies
 find_package(TBB REQUIRED tbb tbbmalloc_proxy)
+find_package(ZLIB)
+
+if(ZLIB_FOUND)
+   add_compile_definitions(ZLIB_FOUND)
+endif()
 
 # use the header only version of fmtlib
 add_compile_definitions(FMT_HEADER_ONLY)
@@ -67,15 +72,15 @@ else()
 endif()
 
 target_include_directories(mylib PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
-target_include_directories(mylib SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS})
-target_link_libraries(mylib PRIVATE TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES} m stdc++fs)
+target_include_directories(mylib SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
+target_link_libraries(mylib PRIVATE TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES}  ${ZLIB_LIBRARIES} m stdc++fs)
 
 target_include_directories(gph PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
-target_include_directories(gph SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS})
+target_include_directories(gph SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
 target_link_libraries(gph PRIVATE mylib TBB::tbb)
 
 target_include_directories(scp PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
-target_include_directories(scp SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS})
+target_include_directories(scp SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
 target_link_libraries(scp PRIVATE mylib TBB::tbb)
 
 
