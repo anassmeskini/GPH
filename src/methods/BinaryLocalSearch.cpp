@@ -33,8 +33,9 @@ BinLocalSearch::improve(
    dynamic_bitset<> best_sol(st.ncols);
    for (int col = 0; col < st.ncols; ++col)
    {
-      assert(incumbent[col] == 1.0 || incumbent[col] == 0.0);
-      best_sol[col] = static_cast<bool>(incumbent[col]);
+      assert(Num::round(incumbent[col]) == 1.0 ||
+             Num::round(incumbent[col] == 0.0));
+      best_sol[col] = static_cast<bool>(Num::round(incumbent[col]));
    }
 
    size_t run = 0;
@@ -79,7 +80,8 @@ BinLocalSearch::improve(
                stalliter = 0;
                found_improvement = true;
             }
-            else if (!found_improvement && viol_diff + loos_diff < Q[run])
+            else if (!found_improvement &&
+                     viol_diff + loos_diff < st.nrows * Q[run] / 100)
                list.add(std::move(adj_sol));
          }
 

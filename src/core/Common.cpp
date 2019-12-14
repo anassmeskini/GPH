@@ -307,7 +307,7 @@ maxOutSolution(const MIP& mip, std::vector<double>& solution, double& cost)
                    max_abs_delta, (activities[row] - rhs[row]) / coef);
          }
 
-         assert(max_abs_delta >= 0.0);
+         assert(Num::isFeasGE(max_abs_delta, 0.0));
       }
 
       if (col < st.nbin + st.nint)

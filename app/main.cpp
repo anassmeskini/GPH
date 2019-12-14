@@ -69,7 +69,7 @@ main(int argc, char** argv)
    std::optional solution = search.run(mip, args.timelimit);
 
    // write the solution to disk
-   if (solution)
+   if (solution && args.writeSol)
    {
       // write the solution to disk
       std::vector solVec = solution.value();

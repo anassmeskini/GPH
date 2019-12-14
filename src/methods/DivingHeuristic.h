@@ -22,6 +22,14 @@ class DivingHeuristic : public FeasibilityHeuristic
 
    ~DivingHeuristic() override = default;
 
+   void
+   setParam(const std::string& param,
+            const std::variant<std::string, int, double>& value) override
+   {
+      if (param == "propagate")
+         propagate = static_cast<bool>(std::get<int>(value));
+   }
+
    void search(const MIP& mip, const std::vector<double>& lb,
                const std::vector<double>& ub,
                const std::vector<Activity>& activities,
@@ -103,19 +111,22 @@ class DivingHeuristic : public FeasibilityHeuristic
             localub[varToFix] = locallb[varToFix];
          }
 
-         bool status = propagate_get_changed_cols(
-             mip, locallb, localub, local_activities, varToFix, oldlb,
-             oldub, buffer);
-
-         Message::debug_details(
-             "{}: fixed var {} -> {}, propagation: {} changed {}",
-             heur_name, varToFix, locallb[varToFix], status,
-             buffer.size());
-
-         if (!status)
+         if (propagate)
          {
-            feasible = false;
-            break;
+            bool status = propagate_get_changed_cols(
+                mip, locallb, localub, local_activities, varToFix, oldlb,
+                oldub, buffer);
+
+            Message::debug_details(
+                "{}: fixed var {} -> {}, propagation: {} changed {}",
+                heur_name, varToFix, locallb[varToFix], status,
+                buffer.size());
+
+            if (!status)
+            {
+               feasible = false;
+               break;
+            }
          }
 
          assert(locallb[varToFix] == localub[varToFix]);
@@ -194,6 +205,8 @@ class DivingHeuristic : public FeasibilityHeuristic
  private:
    constexpr static double iter_per_col_max = 0.25;
    constexpr static double simplex_iter_growth_max = 1.05;
+
+   bool propagate = true;
 };
 
 #endif

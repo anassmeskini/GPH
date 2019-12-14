@@ -83,6 +83,8 @@ MPSWrapper::MPSWrapper(const std::string& filename)
    {
       if (content[i] == tab)
          content[i] = blank;
+      else if (content[i] == '\r')
+         content[i] = '\n';
    }
 }
 
@@ -100,8 +102,9 @@ MPSWrapper::getLine() noexcept
       ++ptr;
    } while (ptr < content.size() && *next != '\n');
 
-   if (ptr < content.size())
+   while (ptr < content.size() && *next == '\n')
    {
+      ++linenb;
       *next = '\0';
       ++next;
       ++ptr;
@@ -126,7 +129,6 @@ MPSWrapper::readLine() noexcept
 
       do
       {
-         ++linenb;
          if (!getLine())
             return false;
 
@@ -672,10 +674,10 @@ MPSReader::parseBounds(MPSWrapper& mps, const Cols& cols,
       if (iter == cols.end())
          return FORMAT_ERROR;
       int colid = iter->second;
+
+      double bound = 0.0;
       if (mps.field4())
       {
-         // TODO catch exceptions
-         double bound;
          try
          {
             bound = std::stod(mps.field4());
@@ -684,45 +686,47 @@ MPSReader::parseBounds(MPSWrapper& mps, const Cols& cols,
          {
             return FORMAT_ERROR;
          }
+      }
 
-         if (!std::strcmp(mps.field1(), "UP"))
-         {
-            ubs[colid] = bound;
-            if (bound < 0.0 && !lb_changed[colid])
-               lbs[colid] = -inf;
-         }
-         else if (!std::strcmp(mps.field1(), "LO"))
-         {
-            lbs[colid] = bound;
-            lb_changed[colid] = true;
-         }
-         else if (!std::strcmp(mps.field1(), "FX"))
-         {
-            lbs[colid] = bound;
-            ubs[colid] = bound;
-         }
-         else if (!std::strcmp(mps.field1(), "MI"))
-            lbs[colid] = -inf;
-         else if (!std::strcmp(mps.field1(), "PL"))
-            ubs[colid] = inf;
-         else
+      if (!std::strcmp(mps.field1(), "UP"))
+      {
+         if (!mps.field4())
             return FORMAT_ERROR;
+         ubs[colid] = bound;
+         if (bound < 0.0 && !lb_changed[colid])
+            lbs[colid] = -inf;
+      }
+      else if (!std::strcmp(mps.field1(), "LO"))
+      {
+         if (!mps.field4())
+            return FORMAT_ERROR;
+         lbs[colid] = bound;
+         lb_changed[colid] = true;
+      }
+      else if (!std::strcmp(mps.field1(), "FX"))
+      {
+         if (!mps.field4())
+            return FORMAT_ERROR;
+         lbs[colid] = bound;
+         ubs[colid] = bound;
+      }
+      else if (!std::strcmp(mps.field1(), "MI"))
+         lbs[colid] = -inf;
+      else if (!std::strcmp(mps.field1(), "PL"))
+         ubs[colid] = inf;
+      else if (!std::strcmp(mps.field1(), "FX"))
+      {
+         lbs[colid] = -inf;
+         ubs[colid] = inf;
+      }
+      else if (!std::strcmp(mps.field1(), "BV"))
+      {
+         lbs[colid] = 0.0;
+         ubs[colid] = 1.0;
+         integer[colid] = true;
       }
       else
-      {
-         if (!std::strcmp(mps.field1(), "FX"))
-         {
-            lbs[colid] = -inf;
-            ubs[colid] = inf;
-         }
-         else if (!std::strcmp(mps.field1(), "BV"))
-         {
-            lbs[colid] = 0.0;
-            ubs[colid] = 1.0;
-            integer[colid] = true;
-         }
-      }
-
+         return FORMAT_ERROR;
    } while (true);
 
    if (std::strcmp(mps.field1(), "ENDATA"))

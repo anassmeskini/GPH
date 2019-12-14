@@ -16,6 +16,7 @@ parseArgs(int argc, char** argv)
    arginfo.timelimit = std::numeric_limits<int>::max();
    arginfo.nthreads = -1;
    arginfo.probFile = "mip.mps";
+   arginfo.writeSol = false;
 
 #ifndef NDEBUG
    arginfo.verbosity = 2;
@@ -23,13 +24,14 @@ parseArgs(int argc, char** argv)
 
    auto cli =
        (value("input file", arginfo.probFile),
-        option("-l", "--limit") &
-            value("tlimit", arginfo.timelimit).doc("time limit"),
+        option("-l", "--limit") & value("tlimit", arginfo.timelimit)
+                                      .doc("time limit in seconds"),
 #ifndef NDEBUG
         option("-v") & value("verbosity", arginfo.verbosity),
 #endif
         option("-t", "--thread") & value("nthreads", arginfo.nthreads)
                                        .doc("number of threads to use"),
+        option("-w").set(arginfo.writeSol).doc("write solution to disk"),
         option("-c", "--config") &
             value("config", arginfo.configFile).doc("configuration file"));
 

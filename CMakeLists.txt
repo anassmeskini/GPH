@@ -13,10 +13,6 @@ file(GLOB SOURCES "src/core/*.cpp"
                
 add_library(mylib STATIC ${SOURCES})
 
-add_executable(gph "src/main.cpp")
-
-add_executable(scp "example/SetCover.cpp" "example/GreedyHeuristic.cpp")
-
 #compiler flags
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
@@ -73,15 +69,6 @@ endif()
 
 target_include_directories(mylib PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
 target_include_directories(mylib SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
-target_link_libraries(mylib PRIVATE TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES}  ${ZLIB_LIBRARIES} m stdc++fs)
+target_link_libraries(mylib PUBLIC TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES}  ${ZLIB_LIBRARIES} m stdc++fs)
 
-target_include_directories(gph PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
-target_include_directories(gph SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
-target_link_libraries(gph PRIVATE mylib TBB::tbb)
-
-target_include_directories(scp PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
-target_include_directories(scp SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
-target_link_libraries(scp PRIVATE mylib TBB::tbb)
-
-
-add_subdirectory(test)
+add_subdirectory(app)

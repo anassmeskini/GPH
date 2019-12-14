@@ -1,6 +1,8 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
+#include "Message.h"
+
 #include <cstring>
 #include <fstream>
 #include <optional>
@@ -17,7 +19,6 @@ struct ParamValuePair
 
 // format
 // HeuristicName/Param = value
-//
 
 class Config
 {
@@ -30,6 +31,8 @@ class Config
          in.open("conf.txt");
          if (!in.is_open())
             return;
+
+         Message::warn("using the configuration file conf.txt");
       }
       else
       {
@@ -45,7 +48,7 @@ class Config
       char* field3 = nullptr;
       while (in.getline(line, sizeof(line)))
       {
-         if (line[0] == '\0')
+         if (line[0] == '\0' || line[0] == '#')
             continue;
 
          ParamValuePair pair;

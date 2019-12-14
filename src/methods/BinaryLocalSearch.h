@@ -37,17 +37,17 @@ class BinLocalSearch final : public ImprovementHeuristic
          Q[0] = std::get<int>(value);
       }
       else if (param == "Q1")
-      {
          Q[1] = std::get<int>(value);
-      }
       else if (param == "Q2")
-      {
          Q[2] = std::get<int>(value);
-      }
       else if (param == "stallitermax")
-      {
          stallitermax = std::get<int>(value);
-      }
+      else if (param == "regsize0")
+         region_size[0] = std::get<int>(value);
+      else if (param == "regsize1")
+         region_size[1] = std::get<int>(value);
+      else if (param == "regsize2")
+         region_size[2] = std::get<int>(value);
    }
 
  private:
@@ -314,6 +314,7 @@ class BinLocalSearch final : public ImprovementHeuristic
          {
             // TODO
             assert(0);
+            solutions.emplace(std::move(sol));
          }
 
          return false;

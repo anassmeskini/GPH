@@ -10,6 +10,7 @@ struct ArgInfo
    std::string configFile;
    int timelimit;
    int nthreads;
+   bool writeSol;
 #ifndef NDEBUG
    int verbosity;
 #endif

@@ -6,6 +6,7 @@
 #include "MIP.h"
 #include "MySolver.h"
 #include "Timer.h"
+#include "ska/Hash.hpp"
 
 #include "io/Config.h"
 #include "io/Message.h"
@@ -42,7 +43,58 @@ class SolutionPool
 
    void add(std::vector<double>&& sol, double obj)
    {
-      solution_list.emplace_back(sol, obj);
+      // check for duplicates
+      for (size_t i = 0; i < solution_list.size(); ++i)
+      {
+         if (!Num::isFeasEQ(solution_list[i].second, obj))
+            continue;
+
+         bool same = true;
+         for (size_t j = 0; j < sol.size(); ++j)
+         {
+            if (!Num::isFeasEQ(solution_list[i].first[j], sol[j]))
+            {
+               same = false;
+               break;
+            }
+         }
+
+         if (same)
+            return;
+      }
+
+      // look for the right position
+      size_t pos = 0;
+      while (pos < solution_list.size() && obj > solution_list[pos].second)
+      {
+         ++pos;
+      }
+
+      if (pos == solution_list.size())
+         solution_list.emplace_back(std::move(sol), obj);
+      else
+      {
+         std::vector<value_type> buffer(solution_list.size() + 1);
+
+         for (size_t i = 0; i < pos; ++i)
+            buffer[i] = std::move(solution_list[i]);
+
+         buffer[pos] = std::make_pair(std::move(sol), obj);
+
+         for (size_t i = pos + 1; i < buffer.size(); ++i)
+            buffer[i] = std::move(solution_list[i - 1]);
+
+         solution_list = std::move(buffer);
+      }
+
+#ifndef NDEBUG
+      for (size_t i = 1; i < solution_list.size(); ++i)
+      {
+         assert(solution_list[i].first.size() ==
+                solution_list[i - 1].first.size());
+         assert(solution_list[i].second <= solution_list[i - 1].second);
+      }
+#endif
    }
 
    size_t size() const { return solution_list.size(); }

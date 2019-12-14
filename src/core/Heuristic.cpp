@@ -34,6 +34,7 @@ Search::Search(std::initializer_list<FeasibilityHeuristic*> feas_heur_list,
    feas_solutions_pools.resize(feas_heuristics.size() + 1);
    impr_solutions_pools.resize(impr_heuristics.size());
 
+   // pass configuration to heuristics
    try
    {
       for (auto [heur_name, param_name, value] : config)
@@ -53,8 +54,8 @@ Search::Search(std::initializer_list<FeasibilityHeuristic*> feas_heur_list,
                impr_heuristics[id]->setParam(param_name, value);
             }
             else
-               Message::warn(
-                   "A parameter for the heuristic {} was ignored.");
+               Message::warn("Parameter {} heuristic {} was ignored.",
+                             param_name, heur_name);
          }
       }
    }
@@ -143,14 +144,19 @@ Search::run(const MIP& mip, int seconds)
    auto st = mip.getStats();
    auto lpSolver = std::make_shared<MySolver>(mip);
 
+#ifdef NDEBUG
+   Message::print("Problem has {} columns, {} rows, {} non-zeros",
+                  st.ncols, st.nrows, st.nnzmat);
+#endif
+
    // variables to be captured by the lambda
    LPResult result;
 
+   Message::print("Solving root LP:");
    auto t0 = Timer::now();
    result = lpSolver->solve(Algorithm::DUAL);
    auto t1 = Timer::now();
 
-   // TODO
    if (result.status != LPResult::OPTIMAL)
    {
       Message::print("The LP solver returned with status {}",
@@ -165,8 +171,7 @@ Search::run(const MIP& mip, int seconds)
 
    roundFeasIntegers(result.primalSolution, st.nbin + st.nint);
 
-   //
-   // TODO should compute both
+   // TODO
    auto lpSolAct = computeSolActivities(mip, result.primalSolution);
    auto fractional =
        getFractional(result.primalSolution, st.nbin + st.nint);
@@ -174,19 +179,20 @@ Search::run(const MIP& mip, int seconds)
 
    double percfrac = 100.0 * static_cast<double>(fractional.size()) /
                      (st.nbin + st.nint);
-   Message::print(
-       "solving root LP took {:0.2f} sec. | niterations {} | obj: "
-       "{:0.4e} | fractional: "
-       "{} ({:0.1f}%)",
-       Timer::seconds(t1, t0), result.niter, result.obj, fractional.size(),
-       percfrac);
+
+   Message::print("  {:<15}: {:0.2f} sec.", "Solving Time",
+                  Timer::seconds(t1, t0));
+   Message::print("  {:<15}: {:0.2f}", "Objective", result.obj);
+   Message::print("  {:<15}: {} ({:0.1f}%)", "Frationals",
+                  fractional.size(), percfrac);
+   Message::print("");
 
    // if the LP can be trivially rounded to an integer solutions
    if (auto optSol = minLockRound(mip, result.primalSolution, result.obj,
                                   fractional))
    {
       auto& sol = optSol.value();
-      Message::print("Root lp can be rounded, obj {}", sol.second);
+      Message::debug("Root lp can be rounded, obj {}", sol.second);
 
       feas_solutions_pools.back().add(std::move(sol.first), sol.second);
    }
@@ -198,6 +204,7 @@ Search::run(const MIP& mip, int seconds)
              fractional, lpSolver, tlimit, feas_solutions_pools[i]);
    };
 
+   Message::print("Running feasibility heuristics:");
    tbb::parallel_for(tbb::blocked_range<size_t>{0, feas_heuristics.size()},
                      std::move(run_feas));
    auto tend = Timer::now();
@@ -224,7 +231,7 @@ Search::run(const MIP& mip, int seconds)
    checkFeasibility(mip, best_sol, 1e-9, 1e-6);
 
    // TODO checkfeasiblity after this
-   maxOutSolution(mip, best_sol, best_cost);
+   // maxOutSolution(mip, best_sol, best_cost);
 
    checkFeasibility(mip, best_sol, 1e-6, 1e-9);
 
@@ -232,25 +239,36 @@ Search::run(const MIP& mip, int seconds)
                 (std::fabs(result.obj) + 1e-6);
 
    if (gap < 10000.0)
-      Message::print("Found {} solutions | gap {:0.2f}% after {:0.2} sec.",
-                     feas_nsols, gap, Timer::seconds(tend, t0));
+      Message::print(
+          "Found {} solutions with gap {:0.2f}% after {:0.2} sec.",
+          feas_nsols, gap, Timer::seconds(tend, t0));
    else
-      Message::print("Found {} solutions | gap --- after {:0.2} sec.",
+      Message::print("Found {} solutions with gap --- after {:0.2} sec.",
                      feas_nsols, gap, Timer::seconds(tend, t0));
 
-   Message::print("Feasibility search summary:");
-   Message::print("\tRoot: found {} solutions",
-                  feas_solutions_pools.back().size());
+   Message::print("  {:<15} {:<15} {:<10} {:<15}", "heuristic",
+                  "Runtime (sec.)", "found", "objective");
    for (size_t i = 0; i < feas_heuristics.size(); ++i)
    {
-      std::string best;
+      // TODO
+      fmt::memory_buffer buf;
+      if (feas_solutions_pools[i].size() == 0)
+         fmt::format_to(buf, "{}", "--");
+      else
+         fmt::format_to(buf, "{:0.2f}", feas_solutions_pools[i][0].second);
+
       if (i == static_cast<size_t>(feas_min_cost_heur))
-         best = "\t[best]";
-      Message::print("\t{}: {:0.1f} sec. found {} solutions {}",
-                     feas_heuristics[i]->getName(),
-                     feas_heuristics[i]->getRunTime(),
-                     feas_solutions_pools[i].size(), best);
+         Message::print("  {:<15} {:<15.1f} {:<10} {:<}*",
+                        feas_heuristics[i]->getName(),
+                        feas_heuristics[i]->getRunTime(),
+                        feas_solutions_pools[i].size(), to_string(buf));
+      else
+         Message::print("  {:<15} {:<15.1f} {:<10} {:<}",
+                        feas_heuristics[i]->getName(),
+                        feas_heuristics[i]->getRunTime(),
+                        feas_solutions_pools[i].size(), to_string(buf));
    }
+   Message::print("");
 
    // return, don't run improvement heuristics
    if (feas_nsols == 0)
@@ -265,6 +283,7 @@ Search::run(const MIP& mip, int seconds)
              impr_solutions_pools[i]);
    };
 
+   Message::print("Running improvement heuristics:");
    tbb::parallel_for(tbb::blocked_range<size_t>{0, impr_heuristics.size()},
                      std::move(run_impr));
    tend = Timer::now();
@@ -280,30 +299,43 @@ Search::run(const MIP& mip, int seconds)
                    (std::fabs(result.obj) + 1e-6);
 
       if (gap < 10000.0)
-         Message::print("Found {} improved solutions | gap {:0.2f}% after "
-                        "{:0.2} sec.",
-                        impr_nsols, gap, Timer::seconds(tend, t0));
+         Message::print(
+             "Found {} improved solutions with gap {:0.2f}% after "
+             "{:0.2} sec.",
+             impr_nsols, gap, Timer::seconds(tend, t0));
       else
-         Message::print("Found {} solutions | gap --- after {:0.2} sec.",
-                        impr_nsols, Timer::seconds(tend, t0));
-      Message::print("Improvement summary:");
+         Message::print(
+             "Found {} solutions with gap --- after {:0.2} sec.",
+             impr_nsols, Timer::seconds(tend, t0));
 
+      Message::print("  {:<15} {:<15} {:<10} {:<15}", "heuristic",
+                     "Runtime (sec.)", "found", "objective");
       for (size_t i = 0; i < impr_heuristics.size(); ++i)
       {
-         std::string best;
+         fmt::memory_buffer buf;
+         if (impr_solutions_pools[i].size() == 0)
+            fmt::format_to(buf, "{}", "--");
+         else
+            fmt::format_to(buf, "{:0.2f}",
+                           impr_solutions_pools[i][0].second);
+
          if (i == static_cast<size_t>(impr_min_cost_heur))
-            best = "\t[best]";
-         Message::print("\t{}: {:0.1f} sec. found {} solutions {}",
-                        impr_heuristics[i]->getName(),
-                        impr_heuristics[i]->getRunTime(),
-                        impr_solutions_pools[i].size(), best);
+            Message::print("  {:<15} {:<15.1f} {:<10} {:<}*",
+                           impr_heuristics[i]->getName(),
+                           impr_heuristics[i]->getRunTime(),
+                           impr_solutions_pools[i].size(), to_string(buf));
+         else
+            Message::print("  {:<15} {:<15.1f} {:<10} {:<}",
+                           impr_heuristics[i]->getName(),
+                           impr_heuristics[i]->getRunTime(),
+                           impr_solutions_pools[i].size(), to_string(buf));
       }
 
       return impr_solutions_pools[impr_min_cost_heur][impr_min_cost_sol]
           .first;
    }
    else
-      Message::print("No new solution founds");
+      Message::print("No improved solution found");
 
    return feas_solutions_pools[feas_min_cost_heur][feas_min_cost_sol]
        .first;
