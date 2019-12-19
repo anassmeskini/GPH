@@ -64,3 +64,5 @@ Below is the result of running GPH on some instances of the set cover problem fr
 | scpd5         | 4k           | 400    | 80k            | 9.1%|
 | rail507      | 63K           | 507   | 409k          | 7.4% |
 | rail582      | 55k           | 582   | 409k          | 3.9%|
+| scpclr12     | 442           | 2k   | 126k           | 69.7%|
+| scpclr13     | 715           | 4k   | 365k           | 102.8%|
