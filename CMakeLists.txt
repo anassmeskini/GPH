@@ -11,7 +11,7 @@ file(GLOB SOURCES "src/core/*.cpp"
                   "src/io/*.cpp" 
                   "src/methods/*.cpp")
                
-add_library(mylib STATIC ${SOURCES})
+add_library(gphlib STATIC ${SOURCES})
 
 #compiler flags
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
@@ -67,8 +67,8 @@ else()
    message(FATAL_ERROR "LP solver not found")
 endif()
 
-target_include_directories(mylib PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
-target_include_directories(mylib SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
-target_link_libraries(mylib PUBLIC TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES}  ${ZLIB_LIBRARIES} m stdc++fs)
+target_include_directories(gphlib PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
+target_include_directories(gphlib SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
+target_link_libraries(gphlib PUBLIC TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES}  ${ZLIB_LIBRARIES} m stdc++fs)
 
 add_subdirectory(app)
