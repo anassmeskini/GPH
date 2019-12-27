@@ -725,6 +725,11 @@ MPSReader::parseBounds(MPSWrapper& mps, const Cols& cols,
          ubs[colid] = 1.0;
          integer[colid] = true;
       }
+      else if (!std::strcmp(mps.field1(), "FR"))
+      {
+         lbs[colid] = -inf;
+         ubs[colid] = inf;
+      }
       else
          return FORMAT_ERROR;
    } while (true);

@@ -72,7 +72,6 @@ CPXSolver::CPXSolver(const MIP& mip)
       // TODO
       assert(0);
    }
-   cplex.setOut(env.getNullStream());
 }
 
 CPXSolver::CPXSolver(const CPXSolver& cpxsolver)
@@ -107,12 +106,15 @@ CPXSolver::CPXSolver(const CPXSolver& cpxsolver)
 
    assert(constraints.getSize() == nrows);
    cplex.extract(model);
-   cplex.setOut(env.getNullStream());
 }
 
 LPResult
 CPXSolver::solve(Algorithm alg)
 {
+   cplex.setOut(env.getNullStream());
+   cplex.setError(env.getNullStream());
+   cplex.setWarning(env.getNullStream());
+
    switch (alg)
    {
    case Algorithm::PRIMAL:

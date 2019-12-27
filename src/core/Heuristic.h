@@ -168,15 +168,10 @@ class ImprovementHeuristic : public Heuristic
    virtual ~ImprovementHeuristic() {}
 
    void execute(
-       const MIP& mip,                   // original problem
-       const std::vector<double>& lb,    // lb at the node
-       const std::vector<double>& ub,    // ub at the node
-       const std::vector<Activity>& act, // activities
-       const LPResult& res,              // LP solution at the current node
-       const std::vector<double>& lpsol, // activities of the rows
-                                         // at the LP solution
-       const std::vector<int>&
-           integer, // integer variables with fractional values
+       const MIP& mip,                          // original problem
+       const std::vector<double>& lb,           // lb at the node
+       const std::vector<double>& ub,           // ub at the node
+       const std::vector<Activity>& act,        // activities
        const std::vector<double>& best_int_sol, // best integer solution
        double best_int_cost, // cost of the best solution
        std::shared_ptr<const LPSolver> lpsolver, // lp solver
@@ -184,8 +179,8 @@ class ImprovementHeuristic : public Heuristic
        SolutionPool& pool)
    {
       auto t0 = Timer::now();
-      improve(mip, lb, ub, act, res, lpsol, integer, best_int_sol,
-              best_int_cost, lpsolver, limit, pool);
+      improve(mip, lb, ub, act, best_int_sol, best_int_cost, lpsolver,
+              limit, pool);
       auto t1 = Timer::now();
 
       runtime += Timer::seconds(t1, t0);
@@ -195,14 +190,10 @@ class ImprovementHeuristic : public Heuristic
 
  private:
    virtual void improve(
-       const MIP&,                   // original problem
-       const std::vector<double>&,   // lb at the node
-       const std::vector<double>&,   // ub at the node
-       const std::vector<Activity>&, // activities
-       const LPResult&,              // LP solution at the current node
-       const std::vector<double>&,   // activities of the rows at the LP
-                                     // solution
-       const std::vector<int>&, // integer variables with fractional values
+       const MIP&,                              // original problem
+       const std::vector<double>&,              // lb at the node
+       const std::vector<double>&,              // ub at the node
+       const std::vector<Activity>&,            // activities
        const std::vector<double>& best_int_sol, // best integer solution
        double best_int_cost,            // cost of the best solution
        std::shared_ptr<const LPSolver>, // lp solver
@@ -218,7 +209,8 @@ class Search
    Search(std::initializer_list<FeasibilityHeuristic*>,
           std::initializer_list<ImprovementHeuristic*>, const Config&);
 
-   std::optional<std::vector<double>> run(const MIP&, int);
+   std::optional<std::vector<double>>
+   run(const MIP&, int, std::optional<std::vector<double>>);
 
  private:
    std::tuple<int, int, double, int> getFeasSolSummary() const;
@@ -228,6 +220,16 @@ class Search
    bool checkSolFeas(const MIP&) const;
 
  private:
+   std::tuple<int, int, double>
+   run_feas_search(const MIP&, TimeLimit, std::shared_ptr<LPSolver>,
+                   const std::vector<Activity>&);
+
+   std::pair<int, int> run_impr_search(const MIP&, TimeLimit,
+                                       std::shared_ptr<LPSolver>,
+                                       const std::vector<Activity>&,
+                                       const std::vector<double>&, double,
+                                       double, Timer::time_point);
+
    std::vector<std::unique_ptr<FeasibilityHeuristic>> feas_heuristics;
    std::vector<std::unique_ptr<ImprovementHeuristic>> impr_heuristics;
    std::vector<SolutionPool> feas_solutions_pools;

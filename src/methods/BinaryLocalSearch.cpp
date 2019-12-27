@@ -7,12 +7,13 @@
 #include <tbb/parallel_for.h>
 
 void
-BinLocalSearch::improve(
-    const MIP& mip, const std::vector<double>&, const std::vector<double>&,
-    const std::vector<Activity>&, const LPResult&,
-    const std::vector<double>&, const std::vector<int>&,
-    const std::vector<double>& incumbent, double incumbent_cost,
-    std::shared_ptr<const LPSolver>, TimeLimit tlimit, SolutionPool& pool)
+BinLocalSearch::improve(const MIP& mip, const std::vector<double>&,
+                        const std::vector<double>&,
+                        const std::vector<Activity>&,
+                        const std::vector<double>& incumbent,
+                        double incumbent_cost,
+                        std::shared_ptr<const LPSolver>, TimeLimit tlimit,
+                        SolutionPool& pool)
 {
    auto st = mip.getStats();
    if (st.nbin < st.ncols || tlimit.reached(Timer::now()))

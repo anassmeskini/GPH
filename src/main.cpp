@@ -23,6 +23,7 @@
 #include "methods/Octane.h"
 #include "methods/RandRounding.h"
 #include "methods/Shifting.h"
+#include "methods/TrivialRounding.h"
 #include "methods/VecLengthDiving.h"
 
 #include <cassert>
@@ -55,18 +56,25 @@ main(int argc, char** argv)
    Message::print("Reading the problem took: {:0.2f} sec.",
                   Timer::seconds(t1, t0));
 
+   // if the user gave a solution, read it
+   std::optional<std::vector<double>> input_sol;
+   if (!args.solutionFile.empty())
+      input_sol = SOLFormat::read(args.solutionFile, mip.getVarNames());
+
+   // search class runs the heuristics
    // takes ownership
    Search search(
        // feasibility heuristics
-       {new BoundSolution, new IntShifting, new MinFracRounding,
-        new MinLockRounding, new CoefDiving, new FracDiving,
-        new RandRounding, new VecLengthDiving, new FeasPump, new Shifting},
+       {new TrivialRounding, new BoundSolution, new IntShifting,
+        new MinFracRounding, new MinLockRounding, new CoefDiving,
+        new FracDiving, new RandRounding, new VecLengthDiving,
+        new FeasPump, new Shifting},
        // improvement heuristics
        {new BinLocalSearch},
        // configuration
        Config(args.configFile));
 
-   std::optional solution = search.run(mip, args.timelimit);
+   std::optional solution = search.run(mip, args.timelimit, input_sol);
 
    // write the solution to disk
    if (solution && args.writeSol)

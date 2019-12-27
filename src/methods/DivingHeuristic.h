@@ -12,8 +12,6 @@ operator+(std::string_view str1, std::string_view str2)
    return std::string(str1) + std::string(str2);
 }
 
-// TODO better stopping criteria
-
 template <typename SELECTION>
 class DivingHeuristic : public FeasibilityHeuristic
 {
@@ -28,6 +26,12 @@ class DivingHeuristic : public FeasibilityHeuristic
    {
       if (param == "propagate")
          propagate = static_cast<bool>(std::get<int>(value));
+      else if (param == "backtrack")
+         backtrack = static_cast<bool>(std::get<int>(value));
+      else if (param == "iter_per_col_max")
+         backtrack = std::get<double>(value);
+      else if (param == "simplex_iter_growth_max")
+         simplex_iter_growth_max = std::get<double>(value);
    }
 
    void search(const MIP& mip, const std::vector<double>& lb,
@@ -203,10 +207,11 @@ class DivingHeuristic : public FeasibilityHeuristic
    }
 
  private:
-   constexpr static double iter_per_col_max = 0.25;
-   constexpr static double simplex_iter_growth_max = 1.05;
-
+   double iter_per_col_max = 0.25;
+   double simplex_iter_growth_max = 1.05;
    bool propagate = true;
+   // TODO add backtracking
+   bool backtrack = false;
 };
 
 #endif

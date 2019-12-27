@@ -31,7 +31,7 @@ Search::Search(std::initializer_list<FeasibilityHeuristic*> feas_heur_list,
       impr_heuristics.emplace_back(heur);
    }
 
-   feas_solutions_pools.resize(feas_heuristics.size() + 1);
+   feas_solutions_pools.resize(feas_heuristics.size());
    impr_solutions_pools.resize(impr_heuristics.size());
 
    // pass configuration to heuristics
@@ -137,17 +137,12 @@ Search::checkSolFeas(const MIP& mip) const
    return true;
 }
 
-std::optional<std::vector<double>>
-Search::run(const MIP& mip, int seconds)
+std::tuple<int, int, double>
+Search::run_feas_search(const MIP& mip, TimeLimit tlimit,
+                        std::shared_ptr<LPSolver> lpSolver,
+                        const std::vector<Activity>& activities)
 {
-   TimeLimit tlimit(Timer::now(), seconds);
    auto st = mip.getStats();
-   auto lpSolver = std::make_shared<MySolver>(mip);
-
-#ifdef NDEBUG
-   Message::print("Problem has {} columns, {} rows, {} non-zeros",
-                  st.ncols, st.nrows, st.nnzmat);
-#endif
 
    // variables to be captured by the lambda
    LPResult result;
@@ -161,7 +156,7 @@ Search::run(const MIP& mip, int seconds)
    {
       Message::print("The LP solver returned with status {}",
                      to_str(result.status));
-      return {};
+      return {-1, -1, 0.0};
    }
 
 #ifndef NDEBUG
@@ -171,11 +166,9 @@ Search::run(const MIP& mip, int seconds)
 
    roundFeasIntegers(result.primalSolution, st.nbin + st.nint);
 
-   // TODO
    auto lpSolAct = computeSolActivities(mip, result.primalSolution);
    auto fractional =
        getFractional(result.primalSolution, st.nbin + st.nint);
-   auto activities = computeActivities(mip);
 
    double percfrac = 100.0 * static_cast<double>(fractional.size()) /
                      (st.nbin + st.nint);
@@ -186,16 +179,6 @@ Search::run(const MIP& mip, int seconds)
    Message::print("  {:<15}: {} ({:0.1f}%)", "Frationals",
                   fractional.size(), percfrac);
    Message::print("");
-
-   // if the LP can be trivially rounded to an integer solutions
-   if (auto optSol = minLockRound(mip, result.primalSolution, result.obj,
-                                  fractional))
-   {
-      auto& sol = optSol.value();
-      Message::debug("Root lp can be rounded, obj {}", sol.second);
-
-      feas_solutions_pools.back().add(std::move(sol.first), sol.second);
-   }
 
    auto run_feas = [&](tbb::blocked_range<size_t>& range) -> void {
       for (size_t i = range.begin(); i != range.end(); ++i)
@@ -218,7 +201,7 @@ Search::run(const MIP& mip, int seconds)
    {
       Message::print("No solution found after {} sec.",
                      Timer::seconds(tend, t0));
-      return {};
+      return {-1, -1, 0.0};
    }
 
    assert(feas_min_cost_sol != -1 && feas_min_cost_heur != -1);
@@ -235,6 +218,7 @@ Search::run(const MIP& mip, int seconds)
 
    checkFeasibility(mip, best_sol, 1e-6, 1e-9);
 
+   // TODO
    double gap = 100.0 * std::fabs(feas_min_cost - result.obj) /
                 (std::fabs(result.obj) + 1e-6);
 
@@ -243,7 +227,7 @@ Search::run(const MIP& mip, int seconds)
           "Found {} solutions with gap {:0.2f}% after {:0.2} sec.",
           feas_nsols, gap, Timer::seconds(tend, t0));
    else
-      Message::print("Found {} solutions with gap --- after {:0.2} sec.",
+      Message::print("Found {} solution(s) with gap --- after {:0.2} sec.",
                      feas_nsols, gap, Timer::seconds(tend, t0));
 
    Message::print("  {:<15} {:<15} {:<10} {:<15}", "heuristic",
@@ -270,23 +254,29 @@ Search::run(const MIP& mip, int seconds)
    }
    Message::print("");
 
-   // return, don't run improvement heuristics
-   if (feas_nsols == 0)
-      return {};
+   return {feas_min_cost_heur, feas_min_cost_sol, result.obj};
+}
 
+std::pair<int, int>
+Search::run_impr_search(const MIP& mip, TimeLimit tlimit,
+                        std::shared_ptr<LPSolver> lpSolver,
+                        const std::vector<Activity>& activities,
+                        const std::vector<double>& best_sol,
+                        double best_cost, double dualbound,
+                        Timer::time_point t0)
+{
    // run improvement heuristics
    auto run_impr = [&](tbb::blocked_range<size_t>& range) -> void {
       for (size_t i = range.begin(); i != range.end(); ++i)
          impr_heuristics[i]->execute(
-             mip, mip.getLB(), mip.getUB(), activities, result, lpSolAct,
-             fractional, best_sol, best_cost, lpSolver, tlimit,
-             impr_solutions_pools[i]);
+             mip, mip.getLB(), mip.getUB(), activities, best_sol,
+             best_cost, lpSolver, tlimit, impr_solutions_pools[i]);
    };
 
    Message::print("Running improvement heuristics:");
    tbb::parallel_for(tbb::blocked_range<size_t>{0, impr_heuristics.size()},
                      std::move(run_impr));
-   tend = Timer::now();
+   auto tend = Timer::now();
 
    auto [impr_min_cost_heur, impr_min_cost_sol, impr_min_cost,
          impr_nsols] = getImprSolSummary();
@@ -295,12 +285,12 @@ Search::run(const MIP& mip, int seconds)
    {
       assert(impr_min_cost_sol != -1 && impr_min_cost_heur != -1);
 
-      double gap = 100.0 * std::fabs(impr_min_cost - result.obj) /
-                   (std::fabs(result.obj) + 1e-6);
+      double gap = 100.0 * std::fabs(impr_min_cost - dualbound) /
+                   (std::fabs(dualbound) + 1e-6);
 
       if (gap < 10000.0)
          Message::print(
-             "Found {} improved solutions with gap {:0.2f}% after "
+             "Found {} improved solution(s) with gap {:0.2f}% after "
              "{:0.2} sec.",
              impr_nsols, gap, Timer::seconds(tend, t0));
       else
@@ -331,12 +321,94 @@ Search::run(const MIP& mip, int seconds)
                            impr_solutions_pools[i].size(), to_string(buf));
       }
 
-      return impr_solutions_pools[impr_min_cost_heur][impr_min_cost_sol]
-          .first;
+      return {impr_min_cost_heur, impr_min_cost_sol};
    }
    else
       Message::print("No improved solution found");
 
-   return feas_solutions_pools[feas_min_cost_heur][feas_min_cost_sol]
-       .first;
+   return {-1, -1};
+}
+
+std::optional<std::vector<double>>
+Search::run(const MIP& mip, int seconds,
+            std::optional<std::vector<double>> optSol)
+{
+   auto st = mip.getStats();
+   Message::print("Problem has {} columns (B:{},I:{},C:{}), {} rows and "
+                  "{} non-zeros",
+                  st.ncols, st.nbin, st.nint, st.ncont, st.nrows,
+                  st.nnzmat);
+   auto t0 = Timer::now();
+   TimeLimit tlimit(Timer::now(), seconds);
+   auto lpSolver = std::make_shared<MySolver>(mip);
+   auto activities = computeActivities(mip);
+
+   if (!optSol)
+   {
+      auto [feas_best_heur, feas_best_sol, dualbound] =
+          run_feas_search(mip, tlimit, lpSolver, activities);
+
+      if (feas_best_heur < 0 || feas_best_sol < 0)
+         return {};
+
+      const auto best_sol =
+          feas_solutions_pools[feas_best_heur][feas_best_sol].first;
+      double best_cost =
+          feas_solutions_pools[feas_best_heur][feas_best_sol].second;
+
+      if ((best_cost - dualbound) / (std::fabs(dualbound) + 1e-6) < 1e-3)
+         return {std::move(best_sol)};
+
+      auto [impr_best_heur, impr_best_sol] =
+          run_impr_search(mip, tlimit, lpSolver, activities, best_sol,
+                          best_cost, dualbound, t0);
+
+      if (impr_best_heur < 0 || impr_best_sol < 0)
+         return {std::move(best_sol)};
+
+      return impr_solutions_pools[impr_best_heur][impr_best_sol].first;
+   }
+   else
+   {
+      Message::print("Solving LP:");
+      auto t0 = Timer::now();
+      auto result = lpSolver->solve(Algorithm::DUAL);
+      auto t1 = Timer::now();
+      Message::print("Solved in {:0.2f}", Timer::seconds(t1, t0));
+
+      std::vector best_sol = optSol.value();
+      double best_cost = 0.0;
+
+      const auto& objective = mip.getObj();
+      for (int col = 0; col < mip.getNCols(); ++col)
+         best_cost += objective[col] * best_sol[col];
+
+      // TODO
+      if (result.status != LPResult::OPTIMAL)
+         return {};
+
+      double dualbound = result.obj;
+      double gap = 100.0 * std::fabs(best_cost - dualbound) /
+                   (std::fabs(result.obj) + 1e-6);
+
+      // check infeasibility
+      auto checkIntFeas = checkFeasibility<double, true>;
+      if (!checkIntFeas(mip, best_sol, 1e-9, 1e-6))
+      {
+         Message::print("Input solution is infeasible");
+         return {};
+      }
+
+      Message::print("Input solution has: objective {:0.4f}, gap {:0.2f}%",
+                     best_cost, gap);
+
+      auto [impr_best_heur, impr_best_sol] =
+          run_impr_search(mip, tlimit, lpSolver, activities, best_sol,
+                          best_cost, dualbound, t0);
+
+      if (impr_best_heur < 0 || impr_best_sol < 0)
+         return {};
+
+      return impr_solutions_pools[impr_best_heur][impr_best_sol].first;
+   }
 }

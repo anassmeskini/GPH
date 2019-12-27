@@ -32,6 +32,9 @@ parseArgs(int argc, char** argv)
         option("-t", "--thread") & value("nthreads", arginfo.nthreads)
                                        .doc("number of threads to use"),
         option("-w").set(arginfo.writeSol).doc("write solution to disk"),
+        option("-s", "--solution") &
+            value("start_sol", arginfo.solutionFile)
+                .doc("path to solution to improve"),
         option("-c", "--config") &
             value("config", arginfo.configFile).doc("configuration file"));
 

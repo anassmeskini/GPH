@@ -8,6 +8,9 @@ struct ArgInfo
 {
    std::string probFile;
    std::string configFile;
+   // input solution
+   std::string solutionFile;
+
    int timelimit;
    int nthreads;
    bool writeSol;

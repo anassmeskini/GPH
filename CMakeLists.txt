@@ -6,21 +6,19 @@ project(GPH LANGUAGES CXX
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-file(GLOB SOURCES "src/core/*.cpp" 
+file(GLOB SOURCES "src/main.cpp" 
+                  "src/core/*.cpp" 
                   "src/interfaces/*.cpp"  
                   "src/io/*.cpp" 
                   "src/methods/*.cpp")
                
-add_library(gphlib STATIC ${SOURCES})
-
-#compiler flags
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic")
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+add_executable(gph ${SOURCES})
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
+
+target_compile_options(gph PUBLIC  "-Wall" "-Wextra" "-Wpedantic")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -67,8 +65,6 @@ else()
    message(FATAL_ERROR "LP solver not found")
 endif()
 
-target_include_directories(gphlib PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
-target_include_directories(gphlib SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
-target_link_libraries(gphlib PUBLIC TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES}  ${ZLIB_LIBRARIES} m stdc++fs)
-
-add_subdirectory(app)
+target_include_directories(gph PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/external)
+target_include_directories(gph SYSTEM PRIVATE ${LPSOLVER_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
+target_link_libraries(gph PUBLIC TBB::tbb TBB::tbbmalloc_proxy ${LPSOLVER_LIBRARIES}  ${ZLIB_LIBRARIES} m stdc++fs)

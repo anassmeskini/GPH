@@ -12,8 +12,8 @@
 
 struct SOLFormat
 {
-   static std::vector<double> read(const std::string& file,
-                                   const std::vector<std::string>& colNames)
+   static std::vector<double>
+   read(const std::string& file, const std::vector<std::string>& colNames)
    {
       std::vector<double> solution(colNames.size(), 0.0);
 
@@ -46,7 +46,7 @@ struct SOLFormat
             break;
          }
 
-         field2 = std::strtok(line, delim);
+         field2 = std::strtok(nullptr, delim);
          if (!field2)
          {
             format_error = true;
@@ -57,8 +57,8 @@ struct SOLFormat
          if (iter != nameToId.end())
             solution[iter->second] = std::stod(field2);
          else
-            Message::warn(
-              "Skipping unknown variable <{}> in line {}", field1, linenb);
+            Message::warn("Skipping unknown variable <{}> in line {}",
+                          field1, linenb);
       }
 
       if (format_error)

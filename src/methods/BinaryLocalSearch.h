@@ -16,13 +16,8 @@ class BinLocalSearch final : public ImprovementHeuristic
                 const std::vector<double>&,   // lb at the node
                 const std::vector<double>&,   // ub at the node
                 const std::vector<Activity>&, // activities
-                const LPResult&, // LP solution at the current node
-                const std::vector<double>&, // activities of the rows at
-                                            // the LP solution
-                const std::vector<int>&,    // integer variables with
-                                            // fractional values
-                const std::vector<double>&, // best integer solution
-                double,                     // cost of the best solution
+                const std::vector<double>&,   // best integer solution
+                double,                       // cost of the best solution
                 std::shared_ptr<const LPSolver>, // lp solver
                 TimeLimit limit,                 // time limit
                 SolutionPool&) override;
