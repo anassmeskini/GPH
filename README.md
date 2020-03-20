@@ -40,30 +40,22 @@ The executable reads plain text and gzip files in MPS format.
 
 ```
 SYNOPSIS
+<<<<<<< HEAD
         ./gph <input file> [-l <tlimit>] [-t <nthreads>] [-w] [-s <start_sol>] [-c <config>]
+=======
+        ./gph <input file> [-l <tlimit>] [-t <nthreads>] [-c <config>] [-s <solution>] [-w]
+>>>>>>> refactor
 
 OPTIONS
         <tlimit>    time limit in seconds
         <nthreads>  number of threads to use
+<<<<<<< HEAD
         -w          write solution to disk
         <start_sol> path to solution to improve
+=======
+>>>>>>> refactor
         <config>    configuration file
+        <solution>  path to solution to improve
+        -w          write solution to disk
+
 ```
-
-## Performance
-Below is the result of running GPH on some instances of the set cover problem from [MIPLIB](https://miplib.zib.de) and [OR-LIBRARY](http://people.brunel.ac.uk/~mastjjb/jeb/info.html) with a time limit of three minutes on a standard desktop computer. The ability to find solutions and their quality is very sensitive to the type of problem.
-
-| instance      | columns       | rows  | non-zero coefficients  | optimality gap  |
-| ------------- |:-------------:| -----:|--------------:|-----:|
-| core4872-1529 | 24k           | 5k    | 218k          | 29.3%|
-| core4284-1064 |  21k          |  4k   | 245k          | 2.18%|
-| core2586-950  | 13k           | 2K    | 104k          | 1.7% |
-| core2536-691  | 15k           | 2K    | 177k          | 0.6% |
-| n3seq24       | 119k          | 6k    | 3M            | 3.4% |
-| scpk4         | 100K          | 2K    | 1M            | 62.9%|
-| scpd4        | 4k           | 400    | 80k            | 14.6%|
-| scpd5         | 4k           | 400    | 80k            | 9.1%|
-| rail507      | 63K           | 507   | 409k          | 7.4% |
-| rail582      | 55k           | 582   | 409k          | 3.9%|
-| scpclr12     | 442           | 2k   | 126k           | 69.7%|
-| scpclr13     | 715           | 4k   | 365k           | 102.8%|

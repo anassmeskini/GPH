@@ -24,8 +24,8 @@ parseArgs(int argc, char** argv)
 
    auto cli =
        (value("input file", arginfo.probFile),
-        option("-l", "--limit") & value("tlimit", arginfo.timelimit)
-                                      .doc("time limit in seconds"),
+        option("-l") & value("tlimit", arginfo.timelimit)
+                           .doc("time limit in seconds"),
 #ifndef NDEBUG
         option("-v") & value("verbosity", arginfo.verbosity),
 #endif
@@ -37,6 +37,12 @@ parseArgs(int argc, char** argv)
                 .doc("path to solution to improve"),
         option("-c", "--config") &
             value("config", arginfo.configFile).doc("configuration file"));
+
+   if (!parse(argc, argv, cli))
+   {
+      std::cout << make_man_page(cli, argv[0]);
+      return {};
+   }
 
 #ifndef NDEBUG
    // set verbosity level
@@ -53,12 +59,6 @@ parseArgs(int argc, char** argv)
       break;
    }
 #endif
-
-   if (!parse(argc, argv, cli))
-   {
-      std::cout << make_man_page(cli, argv[0]);
-      return {};
-   }
 
    return arginfo;
 }

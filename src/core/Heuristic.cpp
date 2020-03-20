@@ -212,10 +212,7 @@ Search::run_feas_search(const MIP& mip, TimeLimit tlimit,
        feas_solutions_pools[feas_min_cost_heur][feas_min_cost_sol].second;
 
    checkFeasibility(mip, best_sol, 1e-9, 1e-6);
-
-   // TODO checkfeasiblity after this
-   // maxOutSolution(mip, best_sol, best_cost);
-
+   maxOutSolution(mip, best_sol, best_cost);
    checkFeasibility(mip, best_sol, 1e-6, 1e-9);
 
    // TODO
@@ -234,7 +231,6 @@ Search::run_feas_search(const MIP& mip, TimeLimit tlimit,
                   "Runtime (sec.)", "found", "objective");
    for (size_t i = 0; i < feas_heuristics.size(); ++i)
    {
-      // TODO
       fmt::memory_buffer buf;
       if (feas_solutions_pools[i].size() == 0)
          fmt::format_to(buf, "{}", "--");
@@ -341,7 +337,7 @@ Search::run(const MIP& mip, int seconds,
    auto t0 = Timer::now();
    TimeLimit tlimit(Timer::now(), seconds);
    auto lpSolver = std::make_shared<MySolver>(mip);
-   auto activities = computeActivities(mip);
+   std::vector activities = computeActivities(mip);
 
    if (!optSol)
    {
@@ -383,9 +379,12 @@ Search::run(const MIP& mip, int seconds,
       for (int col = 0; col < mip.getNCols(); ++col)
          best_cost += objective[col] * best_sol[col];
 
-      // TODO
       if (result.status != LPResult::OPTIMAL)
+      {
+         Message::print("LP solver returned with status: {}",
+                        to_str(result.status));
          return {};
+      }
 
       double dualbound = result.obj;
       double gap = 100.0 * std::fabs(best_cost - dualbound) /

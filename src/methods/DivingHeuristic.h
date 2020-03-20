@@ -29,9 +29,7 @@ class DivingHeuristic : public FeasibilityHeuristic
       else if (param == "backtrack")
          backtrack = static_cast<bool>(std::get<int>(value));
       else if (param == "iter_per_col_max")
-         backtrack = std::get<double>(value);
-      else if (param == "simplex_iter_growth_max")
-         simplex_iter_growth_max = std::get<double>(value);
+         iter_per_col_max = std::get<double>(value);
    }
 
    void search(const MIP& mip, const std::vector<double>& lb,
@@ -42,11 +40,13 @@ class DivingHeuristic : public FeasibilityHeuristic
                std::shared_ptr<const LPSolver> solver, TimeLimit tlimit,
                SolutionPool& pool) override
    {
+      auto heur_name = SELECTION::name + "Diving";
       int ncols = mip.getNCols();
       auto st = mip.getStats();
       const auto& objective = mip.getObj();
       const auto& downLocks = mip.getDownLocks();
 
+      // avoid warnings
 #ifndef NDEBUG
       const auto& upLocks = mip.getUpLocks();
 #endif
@@ -57,22 +57,20 @@ class DivingHeuristic : public FeasibilityHeuristic
       auto localfrac = fractional;
       auto localsol = result.primalSolution;
       double localobj = -1.0;
-      std::unique_ptr<LPSolver> localsolver = solver->clone();
+      std::unique_ptr localsolver = solver->clone();
 
-      auto heur_name = SELECTION::name + "Diving";
-
-      bool feasible = true;
-      int iter = 0;
-
-      std::vector<int> buffer;
+      std::vector<int> changedCols;
+      std::vector<double> oldlbs;
+      std::vector<double> oldubs;
+      std::vector<Activity> old_activities;
 
       bool hasZeroLockFractionals = false;
-      int prev_simplex_iter = -1;
       bool limit_reached = false;
+      bool feasible = true;
+      int iter = 0;
       do
       {
          ++iter;
-         prev_simplex_iter = result.niter;
 
          auto [varToFix, direction, nFrac] =
              SELECTION::select(mip, locallb, localub, localsol);
@@ -80,25 +78,34 @@ class DivingHeuristic : public FeasibilityHeuristic
          Message::debug_details("{}: iter {}, nFrac {}", heur_name, iter,
                                 nFrac);
 
+         // no more variables to fix
          if (varToFix < 0)
          {
             if (nFrac > 0)
             {
                hasZeroLockFractionals = true;
 #ifndef NDEBUG
-               bool checklpFeas = checkFeasibility<double, true>(
-                   mip, localsol, 1e-6, 1e-6);
+               bool checklpFeas =
+                   checkFeasibility<double, true>(mip, localsol);
                assert(checklpFeas);
 #endif
             }
             else
-               assert(checkFeasibility<double>(mip, localsol, 1e-9, 1e-6));
+               assert(checkFeasibility<double>(mip, localsol));
 
             break;
          }
 
-         double oldlb = locallb[varToFix];
-         double oldub = localub[varToFix];
+         // remember the bounds and activities for backtracking
+         if (propagate && backtrack)
+         {
+            oldlbs = locallb;
+            oldubs = localub;
+            old_activities = local_activities;
+         }
+
+         double fixedVarOldlb = locallb[varToFix];
+         double fixedVarOldub = localub[varToFix];
 
          if (Num::isMinusInf(locallb[varToFix]) ||
              Num::isInf(localub[varToFix]))
@@ -107,6 +114,7 @@ class DivingHeuristic : public FeasibilityHeuristic
             localub[varToFix] = Num::ceil(localsol[varToFix]);
          }
 
+         // fix the variable
          if (direction == 1)
             locallb[varToFix] = localub[varToFix];
          else
@@ -115,19 +123,58 @@ class DivingHeuristic : public FeasibilityHeuristic
             localub[varToFix] = locallb[varToFix];
          }
 
+         // propagate the change
          if (propagate)
          {
             bool status = propagate_get_changed_cols(
-                mip, locallb, localub, local_activities, varToFix, oldlb,
-                oldub, buffer);
+                mip, locallb, localub, local_activities, varToFix,
+                fixedVarOldlb, fixedVarOldub, changedCols);
 
             Message::debug_details(
                 "{}: fixed var {} -> {}, propagation: {} changed {}",
                 heur_name, varToFix, locallb[varToFix], status,
-                buffer.size());
+                changedCols.size());
 
-            if (!status)
+            if (!status && backtrack)
             {
+               Message::debug_details("{}: backtraking", heur_name);
+
+               // backtrack
+               for (int col : changedCols)
+               {
+                  locallb[col] = oldlbs[col];
+                  localub[col] = oldubs[col];
+               }
+               changedCols.clear();
+
+               assert(locallb[varToFix] == oldlbs[varToFix]);
+               assert(localub[varToFix] == oldubs[varToFix]);
+
+               // correct the activities
+               local_activities = old_activities;
+
+               // try the opposite direction
+               if (direction == 1)
+                  localub[varToFix] = locallb[varToFix];
+               else
+                  locallb[varToFix] = localub[varToFix];
+
+               status = propagate_get_changed_cols(
+                   mip, locallb, localub, local_activities, varToFix,
+                   fixedVarOldlb, fixedVarOldub, changedCols);
+
+               if (!status)
+               {
+                  feasible = false;
+                  Message::debug_details(
+                      "{}: infeasible after backtracking + propagation",
+                      heur_name);
+                  break;
+               }
+            }
+            else if (!status)
+            {
+               assert(0);
                feasible = false;
                break;
             }
@@ -135,14 +182,19 @@ class DivingHeuristic : public FeasibilityHeuristic
 
          assert(locallb[varToFix] == localub[varToFix]);
 
-         for (auto col : buffer)
+         // apply propagation changes and solve
+         for (auto col : changedCols)
             localsolver->changeBounds(col, locallb[col], localub[col]);
-         buffer.clear();
+         changedCols.clear();
 
          auto local_result = localsolver->solve(Algorithm::DUAL);
 
          if (local_result.status != LPResult::OPTIMAL)
+         {
+            // TODO backtrack ?
             feasible = false;
+            Message::debug_details("{}: LP infeasible", heur_name);
+         }
          else
          {
             localsol = std::move(local_result.primalSolution);
@@ -151,19 +203,19 @@ class DivingHeuristic : public FeasibilityHeuristic
             roundFeasIntegers(localsol, st.nbin + st.nint);
 #ifndef NDEBUG
             bool checklpFeas =
-                checkFeasibility<double, true>(mip, localsol, 1e-6, 1e-6);
+                checkFeasibility<double, true>(mip, localsol);
             assert(checklpFeas);
             assert(Num::isFeasEQ(localsol[varToFix], locallb[varToFix]));
 #endif
          }
 
          if (iter > ncols * iter_per_col_max ||
-             result.niter > simplex_iter_growth_max * prev_simplex_iter ||
              tlimit.reached(Timer::now()))
             limit_reached = true;
 
       } while (feasible && !limit_reached);
 
+      // add the solution if its feasible
       if (feasible && !limit_reached && hasZeroLockFractionals)
       {
          localobj = 0.0;
@@ -190,28 +242,27 @@ class DivingHeuristic : public FeasibilityHeuristic
          }
 
          Message::debug("{}: found solution val {}", heur_name, localobj);
-         assert(checkFeasibility<double>(mip, localsol, 1e-6, 1e-6));
+         assert(checkFeasibility<double>(mip, localsol));
          pool.add(std::move(localsol), localobj);
       }
       else if (feasible && !limit_reached)
       {
          Message::debug("{}: found solution val {}", heur_name, localobj);
-         assert(checkFeasibility<double>(mip, localsol, 1e-6, 1e-6));
+         assert(checkFeasibility<double>(mip, localsol));
          pool.add(std::move(localsol), localobj);
       }
+      else if (limit_reached)
+         Message::debug("{}: limit reached after {} iterations", heur_name,
+                        iter);
       else
-      {
          Message::debug("{}: infeasible after {} iterations", heur_name,
                         iter);
-      }
    }
 
  private:
-   double iter_per_col_max = 0.25;
-   double simplex_iter_growth_max = 1.05;
+   double iter_per_col_max = 0.3;
    bool propagate = true;
-   // TODO add backtracking
-   bool backtrack = false;
+   bool backtrack = true;
 };
 
 #endif
