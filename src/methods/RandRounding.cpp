@@ -53,7 +53,7 @@ RandRounding::search(const MIP& mip, const std::vector<double>& lb,
          // ??
          if (res.status == LPResult::OPTIMAL)
          {
-            pool.add(std::move(res.primalSolution), res.obj);
+            pool.add(std::move(res.primalSol), res.obj);
             Message::debug("RandRound: lp feasible, cost {}", res.obj);
          }
          else
@@ -68,7 +68,7 @@ RandRounding::search(const MIP& mip, const std::vector<double>& lb,
    bool feasible = true;
    for (int col = 0; col < st.nbin + st.nint && feasible; ++col)
    {
-      double solval = result.primalSolution[col];
+      double solval = result.primalSol[col];
       if (Num::isIntegral(solval))
       {
          double oldlb = locallb_partial[col];
@@ -115,8 +115,8 @@ RandRounding::search(const MIP& mip, const std::vector<double>& lb,
          if (!Num::isFeasEQ(locallb[col], localub[col]))
          {
             double rand = dist(gen);
-            double floor = Num::floor(result.primalSolution[col]);
-            double frac = result.primalSolution[col] - floor;
+            double floor = Num::floor(result.primalSol[col]);
+            double frac = result.primalSol[col] - floor;
 
             double oldlb = locallb[col];
             double oldub = localub[col];

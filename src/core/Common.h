@@ -9,31 +9,37 @@
 #include <chrono>
 #include <memory>
 
+// stores the maximum and minimum activity of a row
+// used in constraint propagation
 struct Activity
 {
    double min = 0.0;
    double max = 0.0;
 
+   // number of terms with -inf minimum activity
    int ninfmin = 0;
+   // number of terms with +inf maximum activity
    int ninfmax = 0;
 };
 
+// get the row activities
 std::vector<Activity>
 computeActivities(const MIP& mip);
 
+// get the solution activities
 std::vector<double>
 computeSolActivities(const MIP& mip, const std::vector<double>& sol);
 
+// update the solution's activities and violated rows after a change
 int
 updateSolActivity(std::vector<double>&, VectorView,
                   const std::vector<double>&, const std::vector<double>&,
                   double, std::vector<int>&, dynamic_bitset<>&);
 
+// get the number of integer variables with fractional values
 std::vector<int>
 getFractional(const std::vector<double>&, int ninteger);
 
-std::vector<int>
-getIdentity(int ncols);
 
 template <typename REAL, bool LP = false>
 bool
@@ -120,11 +126,15 @@ getNViolated(const MIP& mip, const std::vector<double>& sol,
    return ninfeas;
 }
 
+// reorders the rows of a sparse matrix
 template <typename COMP>
 void
 sortRows(SparseMatrix& mat, COMP&& comp)
 {
-   const std::vector<int> identity = getIdentity(mat.ncols);
+   const std::vector<int> identity(mat.ncols);
+   std::generate(std::begin(identity), std::end(identity), [](){static int i = 0;
+   return i++;});
+
    std::vector<int> permutation;
    std::vector<int> indcopy;
    std::vector<double> coefcopy;

@@ -6,15 +6,19 @@
 
 struct ArgInfo
 {
+   // input problem
    std::string probFile;
+   // configuration file
    std::string configFile;
    // input solution
    std::string solutionFile;
 
    int timelimit;
    int nthreads;
+   // write solution to a file
    bool writeSol;
 #ifndef NDEBUG
+   // output level
    int verbosity;
 #endif
 };

@@ -143,7 +143,12 @@ MIP::MIP(const Rows& rows, const Cols& cols, std::vector<double>&& coefsT,
 
    // reorder variables | binary | int | continuous
    // permutation maps new id -> old id
-   std::vector<int> permutation = getIdentity(ncols);
+   std::vector<int> permutation(ncols);
+   std::generate(std::begin(permutation), std::end(permutation), [](){
+      static int i = 0;
+      return i++;
+   });
+
    std::sort(permutation.begin(), permutation.end(),
              [&integer, this](int left, int right) -> bool {
                 bool leftbin =

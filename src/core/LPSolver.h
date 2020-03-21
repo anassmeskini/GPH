@@ -18,8 +18,8 @@ struct LPResult
       OTHER
    } status;
 
-   std::vector<double> primalSolution;
-   std::vector<double> dualSolution;
+   std::vector<double> primalSol;
+   std::vector<double> dualSol;
    double obj;
 
    // number of simplex iterations

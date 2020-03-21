@@ -21,7 +21,7 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
 
    std::unique_ptr<LPSolver> localsolver;
 
-   auto solution = result.primalSolution;
+   auto solution = result.primalSol;
 
    auto process_sol = [&](std::vector<double>& sol) {
       if (mip.getStats().ncont == 0)
@@ -45,7 +45,7 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
 
          // ??
          if (res.status == LPResult::OPTIMAL)
-            pool.add(std::move(res.primalSolution), res.obj);
+            pool.add(std::move(res.primalSol), res.obj);
          else
             Message::debug("FracRound: lp infeasible");
       }
@@ -88,7 +88,7 @@ MinFracRounding::search(const MIP& mip, const std::vector<double>& lb,
       {
          double oldlb = locallb[col];
          double oldub = localub[col];
-         double floor = Num::floor(result.primalSolution[col]);
+         double floor = Num::floor(result.primalSol[col]);
          double frac = solution[col] - floor;
 
          locallb[col] =

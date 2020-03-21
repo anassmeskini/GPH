@@ -48,7 +48,7 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
    std::vector<Activity> local_activities(nrows);
 
    // the current lp sol
-   auto lp_sol = result.primalSolution;
+   auto lp_sol = result.primalSol;
 
    // the history of visited integer solutions
    std::array<std::vector<double>, cycle_length> int_sols;
@@ -123,7 +123,7 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
                break;
             }
 
-            sol = std::move(local_result.primalSolution);
+            sol = std::move(local_result.primalSol);
          }
 
          assert(!sol.empty());
@@ -214,8 +214,8 @@ FeasPump::search(const MIP& mip, const std::vector<double>& lb,
       // solve the lp
       auto local_result = localsolver->solve(Algorithm::PRIMAL);
       assert(local_result.status == LPResult::OPTIMAL);
-      assert(!local_result.primalSolution.empty());
-      lp_sol = std::move(local_result.primalSolution);
+      assert(!local_result.primalSol.empty());
+      lp_sol = std::move(local_result.primalSol);
 
       // compute the fractionality
       last_frac = total_frac;

@@ -71,6 +71,7 @@ CPXSolver::CPXSolver(const MIP& mip)
    {
       // TODO
       assert(0);
+      throw;
    }
 }
 
@@ -142,13 +143,13 @@ CPXSolver::solve(Algorithm alg)
       // get primal vals
       cplex.getValues(prvals, variables);
       for (int i = 0; i < ncols; ++i)
-         result.primalSolution.push_back(prvals[i]);
+         result.primalSol.push_back(prvals[i]);
 
       IloNumArray duvals(env);
       // get dual vals
       cplex.getDuals(duvals, constraints);
       for (int i = 0; i < nrows; ++i)
-         result.dualSolution.push_back(duvals[i]);
+         result.dualSol.push_back(duvals[i]);
 
       result.obj = cplex.getObjValue();
       result.niter = cplex.getNiterations();

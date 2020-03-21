@@ -92,10 +92,10 @@ SPXSolver::solve(Algorithm alg)
 
       // TODO use memcpy
       for (int i = 0; i < ncols; ++i)
-         result.primalSolution.push_back(prim[i]);
+         result.primalSol.push_back(prim[i]);
 
       for (int i = 0; i < nrows; ++i)
-         result.dualSolution.push_back(dual[i]);
+         result.dualSol.push_back(dual[i]);
 
       result.obj = mysoplex.objValueReal();
       result.niter = mysoplex.numIterations();

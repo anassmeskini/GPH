@@ -18,7 +18,7 @@ TrivialRounding::search(const MIP& mip, const std::vector<double>&,
 {
 
    std::optional optSol =
-       minLockRound(mip, result.primalSolution, result.obj, fractional);
+       minLockRound(mip, result.primalSol, result.obj, fractional);
 
    if (optSol)
    {

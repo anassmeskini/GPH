@@ -31,7 +31,7 @@ Shifting::search(const MIP& mip, const std::vector<double>& lb,
    do
    {
       auto solActivity = solAct;
-      auto solution = result.primalSolution;
+      auto solution = result.primalSol;
       auto fracPermutation = fractional;
 
       switch (ordering)
@@ -318,8 +318,8 @@ Shifting::search(const MIP& mip, const std::vector<double>& lb,
             {
                Message::debug("Shif: lp sol feasible");
                assert(checkFeasibility<double>(
-                   mip, local_result.primalSolution));
-               pool.add(std::move(local_result.primalSolution),
+                   mip, local_result.primalSol));
+               pool.add(std::move(local_result.primalSol),
                         local_result.obj);
             }
             else if (local_result.status == LPResult::INFEASIBLE)

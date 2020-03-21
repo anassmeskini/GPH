@@ -94,11 +94,11 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
 
    // compute the solution activities that ignores continuous activities
    auto intSolAct = solAct;
-   auto intSol = result.primalSolution;
+   auto intSol = result.primalSol;
    for (int col = st.nbin + st.nint; col < ncols; ++col)
    {
       auto [colcoefs, colindices, colsize] = mip.getCol(col);
-      double solval = result.primalSolution[col];
+      double solval = result.primalSol[col];
 
       intSol[col] = 0.0;
 
@@ -396,8 +396,8 @@ IntShifting::search(const MIP& mip, const std::vector<double>& lb,
             Message::debug("ShifInt: lp sol feasible");
 
             assert(checkFeasibility<double>(mip,
-                                            local_result.primalSolution));
-            pool.add(std::move(local_result.primalSolution),
+                                            local_result.primalSol));
+            pool.add(std::move(local_result.primalSol),
                      local_result.obj);
          }
          else if (local_result.status == LPResult::INFEASIBLE)

@@ -85,11 +85,11 @@ BoundSolution::search(const MIP& mip, const std::vector<double>& lb,
                   Message::debug("Bnd: lb: lp feasible");
 
                   assert(checkFeasibility<double>(
-                      mip, localresult.primalSolution));
+                      mip, localresult.primalSol));
 
                   {
                      std::unique_lock lock(solPoolLock);
-                     pool.add(std::move(localresult.primalSolution),
+                     pool.add(std::move(localresult.primalSol),
                               localresult.obj);
                   }
                }

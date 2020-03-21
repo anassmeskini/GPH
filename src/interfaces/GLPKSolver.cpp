@@ -100,13 +100,13 @@ GLPKSolver::solve(Algorithm alg)
       {
       case GLP_OPT:
          result.status = LPResult::OPTIMAL;
-         result.primalSolution.resize(ncols);
+         result.primalSol.resize(ncols);
          for (int i = 0; i < ncols; ++i)
-            result.primalSolution[i] = glp_get_col_prim(problem, i + 1);
+            result.primalSol[i] = glp_get_col_prim(problem, i + 1);
 
-         result.dualSolution.resize(nrows);
+         result.dualSol.resize(nrows);
          for (int j = 0; j < nrows; ++j)
-            result.dualSolution[j] = glp_get_row_prim(problem, j + 1);
+            result.dualSol[j] = glp_get_row_prim(problem, j + 1);
 
          result.obj = glp_get_obj_val(problem);
          result.niter = glp_get_it_cnt(problem);

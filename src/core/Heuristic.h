@@ -116,7 +116,7 @@ class FeasibilityHeuristic : public Heuristic
    {
    }
 
-   virtual ~FeasibilityHeuristic() {}
+   virtual ~FeasibilityHeuristic() = default;
 
    void execute(const MIP& mip,                   // original problem
                 const std::vector<double>& lb,    // lb at the node
@@ -142,17 +142,16 @@ class FeasibilityHeuristic : public Heuristic
 
  private:
    virtual void search(
-       const MIP&,                   // original problem
-       const std::vector<double>&,   // lb at the node
-       const std::vector<double>&,   // ub at the node
-       const std::vector<Activity>&, // activities
-       const LPResult&,              // LP solution at the current node
-       const std::vector<double>&,   // activities of the rows at the LP
-                                     // solution
-       const std::vector<int>&, // integer variables with fractional values
-       std::shared_ptr<const LPSolver>, // lp solver
-       TimeLimit limit,                 // time limit
-       SolutionPool&) = 0;              // solution pool
+       const MIP&,               
+       const std::vector<double>&,  
+       const std::vector<double>&,  
+       const std::vector<Activity>&,
+       const LPResult&,             
+       const std::vector<double>&,  
+       const std::vector<int>&, 
+       std::shared_ptr<const LPSolver>,
+       TimeLimit limit,                
+       SolutionPool&) = 0;              
 
    float runtime;
 };
@@ -165,7 +164,7 @@ class ImprovementHeuristic : public Heuristic
    {
    }
 
-   virtual ~ImprovementHeuristic() {}
+   virtual ~ImprovementHeuristic() = default;
 
    void execute(
        const MIP& mip,                          // original problem
@@ -190,15 +189,15 @@ class ImprovementHeuristic : public Heuristic
 
  private:
    virtual void improve(
-       const MIP&,                              // original problem
-       const std::vector<double>&,              // lb at the node
-       const std::vector<double>&,              // ub at the node
-       const std::vector<Activity>&,            // activities
-       const std::vector<double>& best_int_sol, // best integer solution
-       double best_int_cost,            // cost of the best solution
-       std::shared_ptr<const LPSolver>, // lp solver
-       TimeLimit limit,                 // time limit
-       SolutionPool&) = 0;              // solution pool
+       const MIP&,                              
+       const std::vector<double>&,             
+       const std::vector<double>&,            
+       const std::vector<Activity>&,          
+       const std::vector<double>& best_int_sol,
+       double best_int_cost,       
+       std::shared_ptr<const LPSolver>, 
+       TimeLimit limit,               
+       SolutionPool&) = 0;            
 
    float runtime;
 };

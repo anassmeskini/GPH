@@ -161,14 +161,14 @@ Search::run_feas_search(const MIP& mip, TimeLimit tlimit,
 
 #ifndef NDEBUG
    auto lpFeas = checkFeasibility<double, true>;
-   assert(lpFeas(mip, result.primalSolution, 1e-9, 1e-6));
+   assert(lpFeas(mip, result.primalSol, 1e-9, 1e-6));
 #endif
 
-   roundFeasIntegers(result.primalSolution, st.nbin + st.nint);
+   roundFeasIntegers(result.primalSol, st.nbin + st.nint);
 
-   auto lpSolAct = computeSolActivities(mip, result.primalSolution);
+   auto lpSolAct = computeSolActivities(mip, result.primalSol);
    auto fractional =
-       getFractional(result.primalSolution, st.nbin + st.nint);
+       getFractional(result.primalSol, st.nbin + st.nint);
 
    double percfrac = 100.0 * static_cast<double>(fractional.size()) /
                      (st.nbin + st.nint);

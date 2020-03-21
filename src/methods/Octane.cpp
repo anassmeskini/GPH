@@ -24,7 +24,7 @@ Octane::search(const MIP& mip, const std::vector<double>& lb,
       Message::debug_details("Octane: using fractional space");
       for (int col = 0; col < ncols; ++col)
       {
-         if (Num::isFeasInt(result.primalSolution[col]))
+         if (Num::isFeasInt(result.primalSol[col]))
             fixed_columns.push_back(col);
          else
             active_columns.push_back(col);
@@ -62,7 +62,7 @@ Octane::search(const MIP& mip, const std::vector<double>& lb,
    for (size_t i = 0; i < active_columns.size(); ++i)
    {
       int col = active_columns[i];
-      origin[i] = result.primalSolution[col] - 0.5;
+      origin[i] = result.primalSol[col] - 0.5;
    }
 
    // create the shooting ray
@@ -117,7 +117,13 @@ Octane::search(const MIP& mip, const std::vector<double>& lb,
 
    // columns are permuted to have a nonincreasing order of column_ratios
    // (v_i)
-   std::vector<int> active_cols_perm = getIdentity(active_columns.size());
+   std::vector<int> active_cols_perm(active_columns.size());
+
+   std::generate(std::begin(active_cols_perm), std::end(active_cols_perm), [](){
+      static int i = 0;
+      return i++;
+   });
+
    std::sort(std::begin(active_cols_perm), std::end(active_cols_perm),
              [&column_ratios](int left, int right) {
                 return column_ratios[left] > column_ratios[right];
@@ -231,7 +237,7 @@ Octane::search(const MIP& mip, const std::vector<double>& lb,
       for (size_t i = 0; i < fixed_columns.size(); ++i)
       {
          int col = fixed_columns[i];
-         solution[col] = result.primalSolution[col];
+         solution[col] = result.primalSol[col];
          cost += solution[col] * objective[col];
       }
 

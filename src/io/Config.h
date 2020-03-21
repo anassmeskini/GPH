@@ -101,8 +101,8 @@ class Config
          throw std::runtime_error("format error in config file");
    }
 
-   auto begin() const { return config.begin(); };
-   auto end() const { return config.end(); };
+   auto begin() const { return config.cbegin(); };
+   auto end() const { return config.cend(); };
 
  private:
    std::vector<ParamValuePair> config;

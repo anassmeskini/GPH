@@ -55,7 +55,7 @@ class DivingHeuristic : public FeasibilityHeuristic
       auto locallb = lb;
       auto localub = ub;
       auto localfrac = fractional;
-      auto localsol = result.primalSolution;
+      auto localsol = result.primalSol;
       double localobj = -1.0;
       std::unique_ptr localsolver = solver->clone();
 
@@ -197,7 +197,7 @@ class DivingHeuristic : public FeasibilityHeuristic
          }
          else
          {
-            localsol = std::move(local_result.primalSolution);
+            localsol = std::move(local_result.primalSol);
             localobj = local_result.obj;
 
             roundFeasIntegers(localsol, st.nbin + st.nint);

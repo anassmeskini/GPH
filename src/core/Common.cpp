@@ -37,7 +37,7 @@ computeActivities(const MIP& mip)
             if (!Num::isMinusInf(lb[col]))
                activities[row].max += lb[col] * coef;
             else
-               activities[row].ninfmax++;
+               ++activities[row].ninfmax;
 
             if (!Num::isInf(ub[col]))
                activities[row].min += ub[col] * coef;
@@ -73,6 +73,7 @@ computeSolActivities(const MIP& mip, const std::vector<double>& sol)
    return activities;
 }
 
+// TODO use hashset
 int
 updateSolActivity(std::vector<double>& activities, VectorView colview,
                   const std::vector<double>& lhs,
@@ -125,16 +126,6 @@ getFractional(const std::vector<double>& sol, int ninteger)
    }
 
    return fractional;
-}
-
-std::vector<int>
-getIdentity(int ncols)
-{
-   std::vector<int> identity(ncols);
-
-   for (int i = 0; i < ncols; ++i)
-      identity[i] = i;
-   return identity;
 }
 
 bool
