@@ -40,22 +40,12 @@ The executable reads plain text and gzip files in MPS format.
 
 ```
 SYNOPSIS
-<<<<<<< HEAD
         ./gph <input file> [-l <tlimit>] [-t <nthreads>] [-w] [-s <start_sol>] [-c <config>]
-=======
-        ./gph <input file> [-l <tlimit>] [-t <nthreads>] [-c <config>] [-s <solution>] [-w]
->>>>>>> refactor
 
 OPTIONS
         <tlimit>    time limit in seconds
         <nthreads>  number of threads to use
-<<<<<<< HEAD
         -w          write solution to disk
         <start_sol> path to solution to improve
-=======
->>>>>>> refactor
         <config>    configuration file
-        <solution>  path to solution to improve
-        -w          write solution to disk
-
 ```
